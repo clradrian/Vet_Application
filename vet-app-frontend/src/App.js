@@ -1,9 +1,26 @@
-import PetOwnerDashboard from './PetOwnerDashboard';
 import React, { useState, useEffect } from 'react';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { Container, Card, CardContent, Typography, TextField, Button, Box, CircularProgress, Alert, AppBar, Toolbar } from '@mui/material';
+import PetOwnerDashboard from './PetOwnerDashboard';
 import AdminDashboard from './AdminDashboard';
 import StaffManager from './StaffManager';
 
+// Tema personalizată cu albastru și alb
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2', // albastru
+      contrastText: '#fff',
+    },
+  },
+});
+
+const API = 'http://localhost:4000/api';
+
 function App() {
+  const [adminTab, setAdminTab] = useState(0);
   const [pets, setPets] = useState([]);
   const [petName, setPetName] = useState('');
   const [petType, setPetType] = useState('');
@@ -13,158 +30,213 @@ function App() {
   const [user, setUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [registerForm, setRegisterForm] = useState({ username: '', password: '', role: '' });
-  const [showRegister, setShowRegister] = useState(false);
+  const [showRegister, setShowRegister] = useState(false); // not used below, keep if you’ll add a register UI
 
-  // Fetch pets from backend
-  useEffect(() => {
-    if (!token) return;
-    fetch('http://localhost:4000/api/pets', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => setPets(data))
-      .catch(() => setError('Failed to fetch pets'));
-  }, [token]);
-
-  const handleAddPet = async (e) => {
-    e.preventDefault();
-    if (!petName || !petType) return;
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('http://localhost:4000/api/pets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ name: petName, type: petType })
-      });
-      if (!res.ok) throw new Error('Failed to add pet');
-      const newPet = await res.json();
-      setPets([...pets, newPet]);
-      setPetName('');
-      setPetType('');
-    } catch {
-      setError('Failed to add pet');
-    }
-    setLoading(false);
-  };
-
+  // Login handler
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
-      const res = await fetch('http://localhost:4000/api/login', {
+      const res = await fetch(`${API}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginForm)
+        body: JSON.stringify(loginForm),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
       setToken(data.token);
-      setUser(data.user);
       localStorage.setItem('token', data.token);
+      // user will be fetched by useEffect after token is set
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Eroare la autentificare.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRegister = async (e) => {
+  // Add pet handler
+  const handleAddPet = async (e) => {
     e.preventDefault();
+    if (!token) return setError('Trebuie să fii autentificat.');
     setError('');
+    setLoading(true);
     try {
-      const res = await fetch('http://localhost:4000/api/register', {
+      const res = await fetch(`${API}/pets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registerForm)
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: petName, type: petType }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
-      setShowRegister(false);
-      setLoginForm({ username: registerForm.username, password: registerForm.password });
-      setRegisterForm({ username: '', password: '', role: '' });
+      if (!res.ok) throw new Error(data.error || 'Failed to add pet');
+      setPets((prev) => [...prev, data]);
+      setPetName('');
+      setPetType('');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Eroare la adăugare.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Fetch current user and pets when we have a token
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      setPets([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        // 1) get current user
+        const meRes = await fetch(`${API}/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!meRes.ok) throw new Error('Eroare la încărcarea utilizatorului.');
+        const me = await meRes.json();
+
+        // 2) get pets
+        const petsRes = await fetch(`${API}/pets`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!petsRes.ok) throw new Error('Eroare la încărcarea animalelor.');
+        const petsData = await petsRes.json();
+
+        if (!cancelled) {
+          setUser(me);
+          setPets(petsData);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e.message || 'A apărut o eroare.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const handleLogout = () => {
     setToken('');
     setUser(null);
+    setPets([]);
     localStorage.removeItem('token');
   };
 
   return (
-    <div style={{ maxWidth: 500, margin: '40px auto', fontFamily: 'sans-serif' }}>
-      <h1>Vet App Dashboard</h1>
-      {!token ? (
-        <div>
-          <form onSubmit={handleLogin} style={{ marginBottom: 24 }}>
-            <h2>Login</h2>
-            <input
-              type="text"
-              placeholder="Username"
-              value={loginForm.username}
-              onChange={e => setLoginForm(f => ({ ...f, username: e.target.value }))}
-              style={{ marginRight: 8 }}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={loginForm.password}
-              onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
-              style={{ marginRight: 8 }}
-            />
-            <button type="submit">Login</button>
-          </form>
-          {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
-        </div>
+    <ThemeProvider theme={theme}>
+      <AppBar position="static" color="primary" sx={{ mb: 4 }}>
+        <Toolbar>
+          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <img src="/logo.png" alt="Logo" style={{ height: 48, marginRight: 16 }} />
+            <Typography variant="h5" color="inherit" sx={{ flexGrow: 1 }}>
+              Aplicație veterinară
+            </Typography>
+          </Box>
+        </Toolbar>
+      </AppBar>
+      {/* Admin tabs full width */}
+      {user && user.role === 'clinic_admin' ? (
+        <>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, px: 3 }}>
+            <Typography variant="subtitle1" color="primary">
+              Autentificat ca <b>{user ? user.username : 'Utilizator'}</b> {user?.role ? `(${user.role})` : ''}
+            </Typography>
+            <Button variant="outlined" color="primary" onClick={handleLogout}>Deconectare</Button>
+          </Box>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2, px: 3 }}>
+            <Tabs value={adminTab} onChange={(_, v) => setAdminTab(v)} aria-label="Admin Tabs" textColor="primary" indicatorColor="primary">
+              <Tab label="Dashboard" />
+              <Tab label="Administrare personal" />
+              <Tab label="Administrare proprietari" />
+            </Tabs>
+          </Box>
+          <Box sx={{ px: 3 }}>
+            {adminTab === 0 && <AdminDashboard token={token} />}
+            {adminTab === 1 && <StaffManager token={token} />}
+            {adminTab === 2 && <StaffManager token={token} proprietariOnly />}
+          </Box>
+        </>
       ) : (
-        <div>
-          <div style={{ marginBottom: 12 }}>
-            Logged in as <b>{user ? user.username : 'User'}</b> ({user ? user.role : ''})
-            <button onClick={handleLogout} style={{ marginLeft: 8 }}>Logout</button>
-          </div>
-          {user && user.role === 'clinic_admin' ? (
-            <>
-              <AdminDashboard token={token} />
-              <StaffManager token={token} />
-            </>
-          ) : user && user.role === 'pet_owner' ? (
-            <PetOwnerDashboard />
-          ) : (
-            <>
-              <form onSubmit={handleAddPet} style={{ marginBottom: 24 }}>
-                <input
-                  type="text"
-                  placeholder="Pet Name"
-                  value={petName}
-                  onChange={e => setPetName(e.target.value)}
-                  style={{ marginRight: 8 }}
-                />
-                <input
-                  type="text"
-                  placeholder="Pet Type"
-                  value={petType}
-                  onChange={e => setPetType(e.target.value)}
-                  style={{ marginRight: 8 }}
-                />
-                <button type="submit" disabled={loading}>Add Pet</button>
-              </form>
-              {error && <div style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
-              <h2>Pet List</h2>
-              <ul>
-                {pets.length === 0 && <li>No pets added yet.</li>}
-                {pets.map((pet) => (
-                  <li key={pet.id}>{pet.name} ({pet.type})</li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
+        <Container maxWidth="sm" sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
+          <Card sx={{ mb: 4, boxShadow: 3, bgcolor: 'background.paper' }}>
+            <CardContent>
+              {!token ? (
+                <Box component="form" onSubmit={handleLogin} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+                  <Typography variant="h6" align="center" color="primary">Autentificare</Typography>
+                  <TextField
+                    label="Nume utilizator"
+                    variant="outlined"
+                    value={loginForm.username}
+                    onChange={(e) => setLoginForm((f) => ({ ...f, username: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Parolă"
+                    type="password"
+                    variant="outlined"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm((f) => ({ ...f, password: e.target.value }))}
+                    fullWidth
+                  />
+                  <Button type="submit" variant="contained" color="primary" disabled={loading} fullWidth>
+                    {loading ? <CircularProgress size={24} /> : 'Autentificare'}
+                  </Button>
+                  {error && <Alert severity="error">{error}</Alert>}
+                </Box>
+              ) : (
+                <Box>
+                  {user && user.role === 'pet_owner' ? (
+                    <PetOwnerDashboard token={token} />
+                  ) : (
+                    <>
+                      <Box component="form" onSubmit={handleAddPet} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+                        <TextField
+                          label="Nume animal"
+                          variant="outlined"
+                          value={petName}
+                          onChange={(e) => setPetName(e.target.value)}
+                          fullWidth
+                        />
+                        <TextField
+                          label="Specie animal"
+                          variant="outlined"
+                          value={petType}
+                          onChange={(e) => setPetType(e.target.value)}
+                          fullWidth
+                        />
+                        <Button type="submit" variant="contained" color="primary" disabled={loading} fullWidth>
+                          {loading ? <CircularProgress size={24} /> : 'Adaugă animal'}
+                        </Button>
+                      </Box>
+                      {error && <Alert severity="error">{error}</Alert>}
+                      <Typography variant="h6" sx={{ mt: 2 }} color="primary">Listă animale</Typography>
+                      {loading && <CircularProgress sx={{ mt: 2 }} />}
+                      <Box component="ul" sx={{ pl: 2 }}>
+                        {pets.length === 0 && !loading && <Typography component="li">Nu există animale adăugate.</Typography>}
+                        {pets.map((pet) => (
+                          <Typography component="li" key={pet.id || `${pet.name}-${pet.type}`}>{pet.name} ({pet.type})</Typography>
+                        ))}
+                      </Box>
+                    </>
+                  )}
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Container>
       )}
-    </div>
+    </ThemeProvider>
   );
 }
 

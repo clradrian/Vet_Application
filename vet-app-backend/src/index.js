@@ -6,6 +6,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { users, findUser, createUser } = require('./users');
 const app = express();
+// ...existing code...
 app.use(cors());
 app.use(express.json());
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
@@ -54,8 +55,36 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
 });
 
 // Staff management endpoints
+// Edit user details
+app.patch('/admin/staff/:id', requireAdmin, (req, res) => {
+  const userId = parseInt(req.params.id);
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const { fullName, email, phone, pets } = req.body;
+  if (fullName !== undefined) user.fullName = fullName;
+  if (email !== undefined) user.email = email;
+  if (phone !== undefined) user.phone = phone;
+  if (pets !== undefined) user.pets = pets;
+  res.json({
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    fullName: user.fullName,
+    email: user.email,
+    phone: user.phone,
+    pets: user.pets
+  });
+});
 app.get('/admin/staff', requireAdmin, (req, res) => {
-  res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role })));
+  res.json(users.map(u => ({
+    id: u.id,
+    username: u.username,
+    role: u.role,
+    fullName: u.fullName || '',
+    email: u.email || '',
+    phone: u.phone || '',
+    pets: u.pets || []
+  })));
 });
 
 app.post('/admin/staff', requireAdmin, (req, res) => {
@@ -66,8 +95,17 @@ app.post('/admin/staff', requireAdmin, (req, res) => {
   if (findUser(username)) {
     return res.status(409).json({ error: 'User already exists.' });
   }
-  const user = createUser(username, password, role);
-  res.status(201).json({ id: user.id, username: user.username, role: user.role });
+    const { fullName, email, phone, pets } = req.body;
+    const user = createUser(username, password, role, fullName, email, phone, pets);
+    res.status(201).json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone,
+      pets: user.pets
+    });
 });
 
 // Register endpoint
@@ -125,4 +163,18 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+// Get current user from token
+app.get('/api/me', (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth) return res.status(401).json({ error: 'Lipsă token.' });
+  const token = auth.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    // Return only safe user info
+    res.json({ id: decoded.id, username: decoded.username, role: decoded.role });
+  } catch {
+    return res.status(401).json({ error: 'Token invalid.' });
+  }
 });

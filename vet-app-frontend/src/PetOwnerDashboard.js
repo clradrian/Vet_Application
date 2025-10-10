@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Card, CardContent, Typography, List, ListItem, ListItemText, Button, Alert, Divider } from '@mui/material';
 
 function PetOwnerDashboard() {
   // Sample data for demonstration
@@ -23,31 +24,45 @@ function PetOwnerDashboard() {
   };
 
   return (
-    <div style={{ maxWidth: 500, margin: '40px auto', fontFamily: 'sans-serif' }}>
-      <h2>Pet Owner Portal</h2>
-      <h3>{pet.name} ({pet.species})</h3>
-      <h4>Upcoming Calendar</h4>
-      <ul>
-        {pet.upcoming.map((item, idx) => (
-          <li key={idx}>{item.date}: {item.type} - {item.details}</li>
-        ))}
-      </ul>
-      <h4>Medical History</h4>
-      <ul>
-        {pet.medicalHistory.map((item, idx) => (
-          <li key={idx}>{item.date}: {item.type} - {item.details}</li>
-        ))}
-      </ul>
-      <h4>Home Administration Confirmation</h4>
-      <form onSubmit={handleConfirm} style={{ marginBottom: 12 }}>
-        <button type="submit">Confirm Home Treatment</button>
-      </form>
-      {confirmation && <div style={{ color: 'green' }}>{confirmation}</div>}
-      <h4>Notifications</h4>
-      <ul>
-        <li>Email/SMS reminders will be sent before each vaccination or treatment.</li>
-      </ul>
-    </div>
+    <Card sx={{ mb: 4, boxShadow: 3, bgcolor: 'background.paper' }}>
+      <CardContent>
+        <Typography variant="h5" align="center" color="primary" gutterBottom>
+          Portal proprietar de animale
+        </Typography>
+        <Typography variant="h6" color="primary" sx={{ mt: 2 }}>{pet.name} ({pet.species})</Typography>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle1" color="primary">Calendar viitor</Typography>
+        <List>
+          {pet.upcoming.length === 0 && <ListItem><ListItemText primary="Nu există evenimente viitoare." /></ListItem>}
+          {pet.upcoming.map((ev, idx) => (
+            <ListItem key={idx} divider>
+              <ListItemText primary={`${ev.date}: ${ev.type} - ${ev.details}`} />
+            </ListItem>
+          ))}
+        </List>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle1" color="primary">Confirmare administrare acasă</Typography>
+        <form onSubmit={handleConfirm} style={{ marginBottom: 12 }}>
+          <Button type="submit" variant="contained" color="primary" fullWidth>Confirmă tratamentul acasă</Button>
+        </form>
+        {confirmation && <Alert severity="success" sx={{ mb: 2 }}>{confirmation}</Alert>}
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle1" color="primary">Notificări</Typography>
+        <List>
+          <ListItem><ListItemText primary="Veți primi notificări prin email/SMS înainte de fiecare vaccinare sau tratament." /></ListItem>
+        </List>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle1" color="primary">Istoric medical</Typography>
+        <List>
+          {pet.medicalHistory.length === 0 && <ListItem><ListItemText primary="Nu există istoric medical." /></ListItem>}
+          {pet.medicalHistory.map((mh, idx) => (
+            <ListItem key={idx} divider>
+              <ListItemText primary={`${mh.date}: ${mh.type} - ${mh.details}`} />
+            </ListItem>
+          ))}
+        </List>
+      </CardContent>
+    </Card>
   );
 }
 
