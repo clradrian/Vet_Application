@@ -145,8 +145,8 @@ function App() {
           </Box>
         </Toolbar>
       </AppBar>
-      {/* Admin tabs full width */}
       {user && user.role === 'clinic_admin' ? (
+        // ...existing code pentru admin tabs...
         <>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, px: 3 }}>
             <Typography variant="subtitle1" color="primary">
@@ -167,71 +167,38 @@ function App() {
             {adminTab === 2 && <StaffManager token={token} proprietariOnly />}
           </Box>
         </>
+      ) : user && user.role === 'pet_owner' ? (
+        <PetOwnerDashboard token={token} />
       ) : (
         <Container maxWidth="sm" sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
           <Card sx={{ mb: 4, boxShadow: 3, bgcolor: 'background.paper' }}>
             <CardContent>
-              {!token ? (
-                <Box component="form" onSubmit={handleLogin} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                  <Typography variant="h6" align="center" color="primary">Autentificare</Typography>
-                  <TextField
-                    label="Nume utilizator"
-                    variant="outlined"
-                    value={loginForm.username}
-                    onChange={(e) => setLoginForm((f) => ({ ...f, username: e.target.value }))}
-                    fullWidth
-                  />
-                  <TextField
-                    label="Parolă"
-                    type="password"
-                    variant="outlined"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm((f) => ({ ...f, password: e.target.value }))}
-                    fullWidth
-                  />
-                  <Button type="submit" variant="contained" color="primary" disabled={loading} fullWidth>
-                    {loading ? <CircularProgress size={24} /> : 'Autentificare'}
-                  </Button>
-                  {error && <Alert severity="error">{error}</Alert>}
-                </Box>
-              ) : (
-                <Box>
-                  {user && user.role === 'pet_owner' ? (
-                    <PetOwnerDashboard token={token} />
-                  ) : (
-                    <>
-                      <Box component="form" onSubmit={handleAddPet} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                        <TextField
-                          label="Nume animal"
-                          variant="outlined"
-                          value={petName}
-                          onChange={(e) => setPetName(e.target.value)}
-                          fullWidth
-                        />
-                        <TextField
-                          label="Specie animal"
-                          variant="outlined"
-                          value={petType}
-                          onChange={(e) => setPetType(e.target.value)}
-                          fullWidth
-                        />
-                        <Button type="submit" variant="contained" color="primary" disabled={loading} fullWidth>
-                          {loading ? <CircularProgress size={24} /> : 'Adaugă animal'}
-                        </Button>
-                      </Box>
-                      {error && <Alert severity="error">{error}</Alert>}
-                      <Typography variant="h6" sx={{ mt: 2 }} color="primary">Listă animale</Typography>
-                      {loading && <CircularProgress sx={{ mt: 2 }} />}
-                      <Box component="ul" sx={{ pl: 2 }}>
-                        {pets.length === 0 && !loading && <Typography component="li">Nu există animale adăugate.</Typography>}
-                        {pets.map((pet) => (
-                          <Typography component="li" key={pet.id || `${pet.name}-${pet.type}`}>{pet.name} ({pet.type})</Typography>
-                        ))}
-                      </Box>
-                    </>
-                  )}
-                </Box>
-              )}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h4" align="center" color="primary" gutterBottom>Bine ai venit!</Typography>
+                <Typography align="center" color="textSecondary">Te rugăm să te autentifici pentru a accesa funcționalitățile aplicației.</Typography>
+              </Box>
+              <Box component="form" onSubmit={handleLogin} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+                <Typography variant="h6" align="center" color="primary">Autentificare</Typography>
+                <TextField
+                  label="Nume utilizator"
+                  variant="outlined"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm((f) => ({ ...f, username: e.target.value }))}
+                  fullWidth
+                />
+                <TextField
+                  label="Parolă"
+                  type="password"
+                  variant="outlined"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm((f) => ({ ...f, password: e.target.value }))}
+                  fullWidth
+                />
+                <Button type="submit" variant="contained" color="primary" disabled={loading} fullWidth>
+                  {loading ? <CircularProgress size={24} /> : 'Autentificare'}
+                </Button>
+                {error && <Alert severity="error">{error}</Alert>}
+              </Box>
             </CardContent>
           </Card>
         </Container>
