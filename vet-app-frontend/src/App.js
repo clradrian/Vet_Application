@@ -94,20 +94,20 @@ function App() {
 
     (async () => {
       setLoading(true);
-      setError('');
+      // Don't show error on initial load, only after login attempt
       try {
         // 1) get current user
         const meRes = await fetch(`${API}/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!meRes.ok) throw new Error('Eroare la încărcarea utilizatorului.');
+        if (!meRes.ok) throw new Error('Token invalid sau expirat.');
         const me = await meRes.json();
 
         // 2) get pets
         const petsRes = await fetch(`${API}/pets`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!petsRes.ok) throw new Error('Eroare la încărcarea animalelor.');
+        if (!petsRes.ok) throw new Error('Token invalid sau expirat.');
         const petsData = await petsRes.json();
 
         if (!cancelled) {
@@ -115,7 +115,14 @@ function App() {
           setPets(petsData);
         }
       } catch (e) {
-        if (!cancelled) setError(e.message || 'A apărut o eroare.');
+        if (!cancelled) {
+          // If token is invalid, log out and clear token
+          setToken('');
+          setUser(null);
+          setPets([]);
+          localStorage.removeItem('token');
+          // Don't show error unless user tried to log in
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
