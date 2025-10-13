@@ -39,12 +39,29 @@
   const [successOwner, setSuccessOwner] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:4000/admin/staff', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => setUsers(data))
-      .catch(() => setError('Failed to fetch staff'));
+    async function fetchOwnersAndPets() {
+      try {
+        const res = await fetch('http://localhost:4000/admin/staff', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        // Pentru fiecare proprietar, ia animalele din backend
+        const owners = data.filter(u => u.role === 'pet_owner');
+        const staff = data.filter(u => u.role !== 'pet_owner');
+        // Fetch pets for each owner
+        const ownersWithPets = await Promise.all(owners.map(async (owner) => {
+          const petsRes = await fetch(`http://localhost:4000/api/pets/${owner.id}`);
+          const pets = await petsRes.json();
+          return { ...owner, pets };
+        }));
+        console.log('ownersWithPets:', ownersWithPets);
+        // Staff nu are animale
+        setUsers([...staff, ...ownersWithPets]);
+      } catch {
+        setError('Failed to fetch staff or pets');
+      }
+    }
+    fetchOwnersAndPets();
   }, [token]);
 
   // Adăugare/editare personal
@@ -176,18 +193,18 @@
                           color="primary"
                           onClick={async () => {
                             if (editingOwner) {
-                              // PATCH la proprietar cu noul animal
-                              const updatedPets = [...(editingOwner.pets || []), petForm];
-                              await fetch(`http://localhost:4000/admin/staff/${editingOwner.id}`,
-                                {
-                                  method: 'PATCH',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    // Adaugă Authorization dacă e nevoie
-                                    ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
-                                  },
-                                  body: JSON.stringify({ pets: updatedPets })
-                                });
+                              // POST la pets cu owner_id
+                              await fetch('http://localhost:4000/api/pets', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
+                                },
+                                body: JSON.stringify({
+                                  owner_id: editingOwner.id,
+                                  ...petForm
+                                })
+                              });
                             }
                             setShowPetForm(false);
                             setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });

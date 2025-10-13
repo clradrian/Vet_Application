@@ -43,11 +43,12 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginForm),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
-      setToken(data.token);
-      localStorage.setItem('token', data.token);
-      // user will be fetched by useEffect after token is set
+  const data = await res.json();
+  console.log('Login response:', data);
+  if (!res.ok) throw new Error(data.error || 'Login failed');
+  setToken(data.token);
+  localStorage.setItem('token', data.token);
+  // user will be fetched by useEffect after token is set
     } catch (err) {
       setError(err.message || 'Eroare la autentificare.');
     } finally {
@@ -104,7 +105,7 @@ function App() {
         const me = await meRes.json();
 
         // 2) get pets
-        const petsRes = await fetch(`${API}/pets`, {
+        const petsRes = await fetch(`${API}/pets/${me.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!petsRes.ok) throw new Error('Token invalid sau expirat.');
