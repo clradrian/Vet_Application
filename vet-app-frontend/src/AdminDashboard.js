@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Card, CardContent, Typography, List, ListItem, ListItemText, CircularProgress, Alert } from '@mui/material';
 
 function AdminDashboard({ token }) {
   const [stats, setStats] = useState(null);
@@ -13,19 +14,31 @@ function AdminDashboard({ token }) {
       .catch(() => setError('Failed to fetch dashboard stats'));
   }, [token]);
 
-  if (error) return <div style={{ color: 'red' }}>{error}</div>;
-  if (!stats) return <div>Loading dashboard...</div>;
+  if (error) return <Alert severity="error">{error}</Alert>;
+  if (!stats) return <CircularProgress sx={{ display: 'block', mx: 'auto', my: 4 }} />;
 
   return (
-    <div>
-      <h2>Clinic Dashboard</h2>
-      <ul>
-        <li>Active Patients: {stats.activePatients}</li>
-        <li>Doses Administered: {stats.dosesAdministered}</li>
-        <li>Daily Appointments: {stats.dailyAppointments}</li>
-        <li>Treatment Compliance Rate: {stats.treatmentComplianceRate}</li>
-      </ul>
-    </div>
+    <Card sx={{ mb: 4, boxShadow: 3, bgcolor: 'background.paper' }}>
+      <CardContent>
+        <Typography variant="h5" align="center" color="primary" gutterBottom>
+          Panou administrare clinică
+        </Typography>
+        <List>
+          <ListItem>
+            <ListItemText primary={`Pacienți activi: ${stats.activePatients}`} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary={`Doze administrate: ${stats.dosesAdministered}`} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary={`Programări zilnice: ${stats.dailyAppointments}`} />
+          </ListItem>
+          <ListItem>
+            <ListItemText primary={`Rată de conformitate tratament: ${stats.treatmentComplianceRate}`} />
+          </ListItem>
+        </List>
+      </CardContent>
+    </Card>
   );
 }
 
