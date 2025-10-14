@@ -1,5 +1,5 @@
-  import React, { useEffect, useState } from 'react';
-  import { Card, CardContent, Typography, TextField, Button, Box, List, ListItem, ListItemText, Alert } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+  import { Card, CardContent, Typography, TextField, Button, Box, List, ListItem, ListItemText, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 
   function StaffManager({ token, proprietariOnly }) {
   // State pentru afisare istoric deparazitare/vaccinuri
@@ -8,7 +8,7 @@
     const [showVaccinesHistory, setShowVaccinesHistory] = useState(false);
   // State pentru editare detalii avansate
   const [editAdvancedMode, setEditAdvancedMode] = useState(false);
-  const [advancedForm, setAdvancedForm] = useState({ sterilizationDate: '', vaccines: [], dewormingInternal: [], dewormingExternal: [] });
+  const [editAdvancedForm, setEditAdvancedForm] = useState(null);
     // State pentru animal selectat
     const [selectedPet, setSelectedPet] = useState(null);
   // State pentru confirmare ștergere animal
@@ -37,30 +37,28 @@
   const [showPetForm, setShowPetForm] = useState(false);
   const [petForm, setPetForm] = useState({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
   const [successOwner, setSuccessOwner] = useState('');
+  const [expandedOwnerId, setExpandedOwnerId] = useState(null);
+
+  const fetchOwnersAndPets = async () => {
+    try {
+      const res = await fetch('http://localhost:4000/admin/staff', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const owners = data.filter(u => u.role === 'pet_owner');
+      const staff = data.filter(u => u.role !== 'pet_owner');
+      const ownersWithPets = await Promise.all(owners.map(async (owner) => {
+        const petsRes = await fetch(`http://localhost:4000/api/pets/${owner.id}`);
+        const pets = await petsRes.json();
+        return { ...owner, pets };
+      }));
+      setUsers([...staff, ...ownersWithPets]);
+    } catch {
+      setError('Failed to fetch staff or pets');
+    }
+  };
 
   useEffect(() => {
-    async function fetchOwnersAndPets() {
-      try {
-        const res = await fetch('http://localhost:4000/admin/staff', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        // Pentru fiecare proprietar, ia animalele din backend
-        const owners = data.filter(u => u.role === 'pet_owner');
-        const staff = data.filter(u => u.role !== 'pet_owner');
-        // Fetch pets for each owner
-        const ownersWithPets = await Promise.all(owners.map(async (owner) => {
-          const petsRes = await fetch(`http://localhost:4000/api/pets/${owner.id}`);
-          const pets = await petsRes.json();
-          return { ...owner, pets };
-        }));
-        console.log('ownersWithPets:', ownersWithPets);
-        // Staff nu are animale
-        setUsers([...staff, ...ownersWithPets]);
-      } catch {
-        setError('Failed to fetch staff or pets');
-      }
-    }
     fetchOwnersAndPets();
   }, [token]);
 
@@ -163,465 +161,495 @@
                     <Button variant="outlined" color="secondary" onClick={() => { setShowOwnerForm(false); setEditingOwner(null); }}>Anulează</Button>
                     <Button variant="outlined" color="primary" onClick={() => setShowPetForm(true)}>Adaugă animal de companie</Button>
                   </Box>
-                  {showPetForm && (
-                    <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                      <Typography variant="subtitle1" color="primary">Date animal de companie</Typography>
-                      <TextField label="Nume" variant="outlined" value={petForm.name} onChange={e => setPetForm(f => ({ ...f, name: e.target.value }))} fullWidth />
-                      <TextField label="Specie" variant="outlined" value={petForm.species} onChange={e => setPetForm(f => ({ ...f, species: e.target.value }))} fullWidth />
-                      <TextField label="Rasă" variant="outlined" value={petForm.breed} onChange={e => setPetForm(f => ({ ...f, breed: e.target.value }))} fullWidth />
-                      <TextField select label="Sex" value={petForm.sex} onChange={e => setPetForm(f => ({ ...f, sex: e.target.value }))} SelectProps={{ native: true }} fullWidth>
-                        <option value="">Selectează</option>
-                        <option value="mascul">Mascul</option>
-                        <option value="femela">Femelă</option>
-                      </TextField>
-                      <TextField label="Data nașterii / Vârstă estimată" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={petForm.birthDate} onChange={e => setPetForm(f => ({ ...f, birthDate: e.target.value }))} fullWidth />
-                      <TextField label="Culoare / semne distinctive" variant="outlined" value={petForm.color} onChange={e => setPetForm(f => ({ ...f, color: e.target.value }))} fullWidth />
-                      <TextField label="Microcip" variant="outlined" value={petForm.microchipId} onChange={e => setPetForm(f => ({ ...f, microchipId: e.target.value }))} fullWidth />
-                      <TextField label="Număr medalion" variant="outlined" value={petForm.tagNumber} onChange={e => setPetForm(f => ({ ...f, tagNumber: e.target.value }))} fullWidth />
-                      <TextField select label="Sterilizat" value={petForm.sterilized} onChange={e => setPetForm(f => ({ ...f, sterilized: e.target.value }))} SelectProps={{ native: true }} fullWidth>
-                        <option value="">Selectează</option>
-                        <option value="da">Da</option>
-                        <option value="nu">Nu</option>
-                      </TextField>
-                      <Button variant="outlined" component="label">
-                        Încarcă poză
-                        <input type="file" accept="image/*" hidden onChange={e => setPetForm(f => ({ ...f, photo: e.target.files[0] }))} />
-                      </Button>
-                      <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={async () => {
-                            if (editingOwner) {
-                              // POST la pets cu owner_id
-                              await fetch('http://localhost:4000/api/pets', {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
-                                },
-                                body: JSON.stringify({
-                                  owner_id: editingOwner.id,
-                                  ...petForm
-                                })
-                              });
-                            }
-                            setShowPetForm(false);
-                            setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
-                          }}
-                        >Salvează animal</Button>
-                        <Button variant="outlined" color="secondary" onClick={() => setShowPetForm(false)}>Anulează</Button>
-                      </Box>
-                    </Box>
-                  )}
                 </Box>
               )}
             </Box>
+            {showPetForm && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                <Typography variant="subtitle1" color="primary">Date animal de companie</Typography>
+                <TextField label="Nume" variant="outlined" value={petForm.name} onChange={e => setPetForm(f => ({ ...f, name: e.target.value }))} fullWidth />
+                <TextField label="Specie" variant="outlined" value={petForm.species} onChange={e => setPetForm(f => ({ ...f, species: e.target.value }))} fullWidth />
+                <TextField label="Rasă" variant="outlined" value={petForm.breed} onChange={e => setPetForm(f => ({ ...f, breed: e.target.value }))} fullWidth />
+                <TextField select label="Sex" value={petForm.sex} onChange={e => setPetForm(f => ({ ...f, sex: e.target.value }))} SelectProps={{ native: true }} fullWidth>
+                  <option value="">Selectează</option>
+                  <option value="mascul">Mascul</option>
+                  <option value="femela">Femelă</option>
+                </TextField>
+                <TextField label="Data nașterii / Vârstă estimată" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={petForm.birthDate} onChange={e => setPetForm(f => ({ ...f, birthDate: e.target.value }))} fullWidth />
+                <TextField label="Culoare / semne distinctive" variant="outlined" value={petForm.color} onChange={e => setPetForm(f => ({ ...f, color: e.target.value }))} fullWidth />
+                <TextField label="Microcip" variant="outlined" value={petForm.microchipId} onChange={e => setPetForm(f => ({ ...f, microchipId: e.target.value }))} fullWidth />
+                <TextField label="Număr medalion" variant="outlined" value={petForm.tagNumber} onChange={e => setPetForm(f => ({ ...f, tagNumber: e.target.value }))} fullWidth />
+                <TextField select label="Sterilizat" value={petForm.sterilized} onChange={e => setPetForm(f => ({ ...f, sterilized: e.target.value }))} SelectProps={{ native: true }} fullWidth>
+                  <option value="">Selectează</option>
+                  <option value="da">Da</option>
+                  <option value="nu">Nu</option>
+                </TextField>
+                <Button variant="outlined" component="label">
+                  Încarcă poză
+                  <input type="file" accept="image/*" hidden onChange={e => setPetForm(f => ({ ...f, photo: e.target.files[0] }))} />
+                </Button>
+                {/* Deworming Internal */}
+                {(editPetForm.dewormingInternal || []).map((d, idx) => (
+                  <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                    <TextField label="Produs/Tip" variant="outlined" value={d.name || ''} onChange={e => {
+                      const arr = [...editPetForm.dewormingInternal];
+                      arr[idx].name = e.target.value;
+                      setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
+                    }} sx={{ flex: 1 }} />
+                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
+                      const arr = [...editPetForm.dewormingInternal];
+                      arr[idx].date = e.target.value;
+                      setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
+                    }} sx={{ flex: 1 }} />
+                    <Button color="error" onClick={() => {
+                      const arr = editPetForm.dewormingInternal.filter((_, i) => i !== idx);
+                      setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
+                    }}>Șterge</Button>
+                  </Box>
+                ))}
+                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare internă</Button>
+                {/* Deworming External */}
+                {(editPetForm.dewormingExternal || []).map((d, idx) => (
+                  <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                    <TextField label="Produs/Tip" variant="outlined" value={d.name || ''} onChange={e => {
+                      const arr = [...editPetForm.dewormingExternal];
+                      arr[idx].name = e.target.value;
+                      setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
+                    }} sx={{ flex: 1 }} />
+                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
+                      const arr = [...editPetForm.dewormingExternal];
+                      arr[idx].date = e.target.value;
+                      setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
+                    }} sx={{ flex: 1 }} />
+                    <Button color="error" onClick={() => {
+                      const arr = editPetForm.dewormingExternal.filter((_, i) => i !== idx);
+                      setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
+                    }}>Șterge</Button>
+                  </Box>
+                ))}
+                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare externă</Button>
+                {/* Vaccines */}
+                {(editPetForm.vaccines || []).map((v, idx) => (
+                  <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                    <TextField label="Nume vaccin" variant="outlined" value={v.name} onChange={e => {
+                      const vaccines = [...editPetForm.vaccines];
+                      vaccines[idx].name = e.target.value;
+                      setEditPetForm(f => ({ ...f, vaccines }));
+                    }} sx={{ flex: 1 }} />
+                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={v.date} onChange={e => {
+                      const vaccines = [...editPetForm.vaccines];
+                      vaccines[idx].date = e.target.value;
+                      setEditPetForm(f => ({ ...f, vaccines }));
+                    }} sx={{ flex: 1 }} />
+                    <Button color="error" onClick={() => {
+                      const vaccines = editPetForm.vaccines.filter((_, i) => i !== idx);
+                      setEditPetForm(f => ({ ...f, vaccines }));
+                    }}>Șterge</Button>
+                  </Box>
+                ))}
+                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '' }] }))}>Adaugă vaccin</Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={async () => {
+                      setError('');
+                      let errorMsg = '';
+                      if (editingOwner) {
+                        try {
+                          // Patch: convert empty date fields to null
+                          const petPayload = {
+                            owner_id: editingOwner.id,
+                            ...petForm,
+                            birthDate: petForm.birthDate ? petForm.birthDate : null,
+                            sterilizationDate: petForm.sterilizationDate ? petForm.sterilizationDate : null
+                          };
+                          const petRes = await fetch('http://localhost:4000/api/pets', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
+                            },
+                            body: JSON.stringify(petPayload)
+                          });
+                          const petData = await petRes.json();
+                          if (!petRes.ok) {
+                            errorMsg = petData.error || 'Eroare la salvarea animalului';
+                            setError(errorMsg);
+                            console.error('Pet save error:', petData);
+                            return;
+                          }
+                          // Save vaccines
+                          if (petForm.vaccines && petForm.vaccines.length > 0 && petData.id) {
+                            await Promise.all(petForm.vaccines.map(v =>
+                              fetch('http://localhost:4000/api/vaccines', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                body: JSON.stringify({ pet_id: petData.id, ...v })
+                              })
+                            ));
+                          }
+                          // Save dewormingInternal
+                          if (petForm.dewormingInternal && petForm.dewormingInternal.length > 0 && petData.id) {
+                            await Promise.all(petForm.dewormingInternal.map(d =>
+                              fetch('http://localhost:4000/api/dewormings', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                body: JSON.stringify({ pet_id: petData.id, ...d, type: 'internal' })
+                              })
+                            ));
+                          }
+                          // Save dewormingExternal
+                          if (petForm.dewormingExternal && petForm.dewormingExternal.length > 0 && petData.id) {
+                            await Promise.all(petForm.dewormingExternal.map(d =>
+                              fetch('http://localhost:4000/api/dewormings', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                body: JSON.stringify({ pet_id: petData.id, ...d, type: 'external' })
+                              })
+                            ));
+                          }
+                          // Refetch owners and pets
+                          await fetchOwnersAndPets();
+                        } catch (err) {
+                          setError('Eroare la comunicarea cu backend-ul');
+                          console.error('Pet save fetch error:', err);
+                          return;
+                        }
+                      }
+                      setShowPetForm(false);
+                      setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
+                    }}
+                  >Salvează animal</Button>
+                  <Button variant="outlined" color="secondary" onClick={() => setShowPetForm(false)}>Anulează</Button>
+                </Box>
+              </Box>
+            )}
             {successOwner && <Alert severity="success" sx={{ mb: 2 }}>{successOwner}</Alert>}
             <Typography variant="h6" color="primary" sx={{ mt: 2 }}>Listă proprietari de animale</Typography>
             <List>
               {ownerList.length === 0 && <ListItem><ListItemText primary="Nu există proprietari adăugați." /></ListItem>}
               {ownerList.map((o) => (
                 <ListItem key={o.id} divider sx={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <Box sx={{ width: '100%' }} onClick={() => {
-                    setShowOwnerForm(true);
-                    setEditingOwner(o);
-                    setOwnerForm({
-                      username: o.username,
-                      password: '',
-                      role: o.role,
-                      fullName: o.fullName || '',
-                      email: o.email || '',
-                      phone: o.phone || ''
-                    });
-                  }}>
-                    <ListItemText
-                      primary={<><b>{o.username}</b>{o.fullName && <> &mdash; {o.fullName}</>}{o.phone && <> &mdash; {o.phone}</>}</>}
-                      secondary={o.email && <span><b>Email:</b> {o.email}</span>}
-                    />
+                  <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box onClick={() => {
+                      setShowOwnerForm(true);
+                      setEditingOwner(o);
+                      setOwnerForm({
+                        username: o.username,
+                        password: '',
+                        role: o.role,
+                        fullName: o.fullName || '',
+                        email: o.email || '',
+                        phone: o.phone || ''
+                      });
+                    }} sx={{ flex: 1 }}>
+                      <ListItemText
+                        primary={<><b>{o.username}</b>{o.fullName && <> &mdash; {o.fullName}</>}{o.phone && <> &mdash; {o.phone}</>}</>}
+                        secondary={o.email && <span><b>Email:</b> {o.email}</span>}
+                      />
+                    </Box>
+                    <Button size="small" variant="contained" sx={{ ml: 2 }} onClick={e => {
+                      e.stopPropagation();
+                      setExpandedOwnerId(expandedOwnerId === o.id ? null : o.id);
+                    }}>
+                      {expandedOwnerId === o.id ? 'Ascunde animalele de companie' : 'Afișează animalele de companie'}
+                    </Button>
                   </Box>
-                  {o.pets && o.pets.length > 0 ? (
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                      {o.pets.map((p, idx) => (
-                        <Button key={idx} size="small" variant="outlined" color="primary" onClick={() => setSelectedPet(p)}>
-                          {p.name} ({p.species})
-                        </Button>
-                      ))}
-                    </Box>
-                  ) : (
-                    <span style={{ color: '#888', marginTop: 8 }}>Fără animale</span>
-                  )}
-                </ListItem>
-              ))}
-              {selectedPet && (
-                <Box sx={{ mt: 3, p: 2, border: '1px solid #1976d2', borderRadius: 2, background: '#f5faff' }}>
-                  <Typography variant="h6" color="primary">Detalii animal</Typography>
-                  {editPetMode ? (
-                    <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <TextField label="Nume" variant="outlined" value={editPetForm.name} onChange={e => setEditPetForm(f => ({ ...f, name: e.target.value }))} fullWidth />
-                      <TextField label="Specie" variant="outlined" value={editPetForm.species} onChange={e => setEditPetForm(f => ({ ...f, species: e.target.value }))} fullWidth />
-                      <TextField label="Rasă" variant="outlined" value={editPetForm.breed} onChange={e => setEditPetForm(f => ({ ...f, breed: e.target.value }))} fullWidth />
-                      <TextField select label="Sex" value={editPetForm.sex} onChange={e => setEditPetForm(f => ({ ...f, sex: e.target.value }))} SelectProps={{ native: true }} fullWidth>
-                        <option value="">Selectează</option>
-                        <option value="mascul">Mascul</option>
-                        <option value="femela">Femelă</option>
-                      </TextField>
-                      <TextField label="Data nașterii / Vârstă estimată" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={editPetForm.birthDate} onChange={e => setEditPetForm(f => ({ ...f, birthDate: e.target.value }))} fullWidth />
-                      <TextField label="Culoare / semne distinctive" variant="outlined" value={editPetForm.color} onChange={e => setEditPetForm(f => ({ ...f, color: e.target.value }))} fullWidth />
-                      <TextField label="Microcip" variant="outlined" value={editPetForm.microchipId} onChange={e => setEditPetForm(f => ({ ...f, microchipId: e.target.value }))} fullWidth />
-                      <TextField label="Număr medalion" variant="outlined" value={editPetForm.tagNumber} onChange={e => setEditPetForm(f => ({ ...f, tagNumber: e.target.value }))} fullWidth />
-                      <TextField select label="Sterilizat" value={editPetForm.sterilized} onChange={e => setEditPetForm(f => ({ ...f, sterilized: e.target.value }))} SelectProps={{ native: true }} fullWidth>
-                        <option value="">Selectează</option>
-                        <option value="da">Da</option>
-                        <option value="nu">Nu</option>
-                      </TextField>
-                      <TextField label="Data sterilizării" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={editPetForm.sterilizationDate} onChange={e => setEditPetForm(f => ({ ...f, sterilizationDate: e.target.value }))} fullWidth />
-                      {/* Deparazitare internă: array, nu string! */}
-                      {(editPetForm.dewormingInternal || []).map((d, idx) => (
-                        <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                          <TextField label="Produs/Tip" variant="outlined" value={d.name || ''} onChange={e => {
-                            const arr = [...editPetForm.dewormingInternal];
-                            arr[idx].name = e.target.value;
-                            setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
-                          }} sx={{ flex: 1 }} />
-                          <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
-                            const arr = [...editPetForm.dewormingInternal];
-                            arr[idx].date = e.target.value;
-                            setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
-                          }} sx={{ flex: 1 }} />
-                          <Button color="error" onClick={() => {
-                            const arr = editPetForm.dewormingInternal.filter((_, i) => i !== idx);
-                            setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
-                          }}>Șterge</Button>
-                        </Box>
-                      ))}
-                      <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare internă</Button>
-                      {/* Deparazitare externă: array, nu string! */}
-                      {(editPetForm.dewormingExternal || []).map((d, idx) => (
-                        <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                          <TextField label="Produs/Tip" variant="outlined" value={d.name || ''} onChange={e => {
-                            const arr = [...editPetForm.dewormingExternal];
-                            arr[idx].name = e.target.value;
-                            setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
-                          }} sx={{ flex: 1 }} />
-                          <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
-                            const arr = [...editPetForm.dewormingExternal];
-                            arr[idx].date = e.target.value;
-                            setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
-                          }} sx={{ flex: 1 }} />
-                          <Button color="error" onClick={() => {
-                            const arr = editPetForm.dewormingExternal.filter((_, i) => i !== idx);
-                            setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
-                          }}>Șterge</Button>
-                        </Box>
-                      ))}
-                      <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare externă</Button>
-                      <Box sx={{ mb: 2 }}>
-                        <Typography variant="subtitle2">Vaccinuri</Typography>
-                        {(editPetForm.vaccines || []).map((v, idx) => (
-                          <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                            <TextField label="Nume vaccin" variant="outlined" value={v.name} onChange={e => {
-                              const vaccines = [...editPetForm.vaccines];
-                              vaccines[idx].name = e.target.value;
-                              setEditPetForm(f => ({ ...f, vaccines }));
-                            }} sx={{ flex: 1 }} />
-                            <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={v.date} onChange={e => {
-                              const vaccines = [...editPetForm.vaccines];
-                              vaccines[idx].date = e.target.value;
-                              setEditPetForm(f => ({ ...f, vaccines }));
-                            }} sx={{ flex: 1 }} />
-                            <Button color="error" onClick={() => {
-                              const vaccines = editPetForm.vaccines.filter((_, i) => i !== idx);
-                              setEditPetForm(f => ({ ...f, vaccines }));
-                            }}>Șterge</Button>
-                          </Box>
-                        ))}
-                        <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '' }] }))}>Adaugă vaccin</Button>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                        <Button variant="contained" color="primary" onClick={async (e) => {
-                          e.preventDefault();
-                          // Găsește proprietarul curent
-                          const owner = ownerList.find(o => o.pets && o.pets.some(p => p.name === selectedPet.name && p.species === selectedPet.species));
-                          if (!owner) return;
-                          // Deep copy to avoid React state mutation issues
-                          const petCopy = {
-                            ...editPetForm,
-                            vaccines: editPetForm.vaccines ? editPetForm.vaccines.map(v => ({ ...v })) : [],
-                            dewormingInternal: editPetForm.dewormingInternal ? editPetForm.dewormingInternal.map(d => ({ ...d })) : [],
-                            dewormingExternal: editPetForm.dewormingExternal ? editPetForm.dewormingExternal.map(d => ({ ...d })) : [],
-                          };
-                          const updatedPets = owner.pets.map(p =>
-                            (p.name === selectedPet.name && p.species === selectedPet.species) ? petCopy : p
-                          );
-                          await fetch(`http://localhost:4000/admin/staff/${owner.id}`,
-                            {
-                              method: 'PATCH',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
-                              },
-                              body: JSON.stringify({ pets: updatedPets })
-                            });
-                          setUsers(users => users.map(u => u.id === owner.id ? { ...u, pets: updatedPets } : u));
-                          setSelectedPet(petCopy);
-                          setEditPetMode(false);
-                          setSuccessOwner('Datele animalului au fost actualizate cu succes!');
-                        }}>Salvează modificările</Button>
-                        <Button variant="outlined" color="secondary" onClick={() => setEditPetMode(false)}>Anulează</Button>
-                      </Box>
-                    </Box>
-                  ) : (
+                  {expandedOwnerId === o.id && (
                     <>
-                      <Typography><b>Nume:</b> {selectedPet.name}</Typography>
-                      <Typography><b>Specie:</b> {selectedPet.species}</Typography>
-                      <Typography><b>Rasă:</b> {selectedPet.breed}</Typography>
-                      <Typography><b>Sex:</b> {selectedPet.sex}</Typography>
-                      <Typography><b>Data nașterii:</b> {selectedPet.birthDate}</Typography>
-                      <Typography><b>Culoare:</b> {selectedPet.color}</Typography>
-                      <Typography><b>Microcip:</b> {selectedPet.microchipId}</Typography>
-                      <Typography><b>Număr medalion:</b> {selectedPet.tagNumber}</Typography>
-                      <Typography><b>Sterilizat:</b> {selectedPet.sterilized}</Typography>
-                      <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                        <Button variant="outlined" color="secondary" onClick={() => setSelectedPet(null)}>Închide</Button>
-                        <Button variant="contained" color="primary" onClick={() => {
-                          setEditPetForm({
-                            ...selectedPet,
-                            vaccines: selectedPet.vaccines ? selectedPet.vaccines.map(v => ({ ...v })) : [],
-                            dewormingInternal: selectedPet.dewormingInternal ? selectedPet.dewormingInternal.map(d => ({ ...d })) : [],
-                            dewormingExternal: selectedPet.dewormingExternal ? selectedPet.dewormingExternal.map(d => ({ ...d })) : [],
-                          });
-                          setEditPetMode(true);
-                        }}>Editează</Button>
-                        <Button variant="contained" color="info" onClick={() => setShowAdvancedPetDetails(v => !v)}>{showAdvancedPetDetails ? 'Ascunde detalii avansate' : 'Detalii avansate'}</Button>
-                        <Button variant="contained" color="error" onClick={() => setShowDeleteConfirm(true)}>Șterge animal</Button>
-                      </Box>
-                      {showAdvancedPetDetails && (
-                        <Box sx={{ mt: 2, p: 2, border: '1px solid #0288d1', borderRadius: 2, background: '#e3f2fd' }}>
-                          <Typography variant="subtitle1" color="primary">Detalii avansate</Typography>
-                          {editAdvancedMode ? (
-                            <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              <TextField
-                                label="Data sterilizării"
-                                type="date"
-                                InputLabelProps={{ shrink: true }}
-                                variant="outlined"
-                                value={selectedPet.sterilized === 'da' ? advancedForm.sterilizationDate : ''}
-                                onChange={e => setAdvancedForm(f => ({ ...f, sterilizationDate: e.target.value }))}
-                                fullWidth
-                                disabled={selectedPet.sterilized !== 'da'}
-                                helperText={selectedPet.sterilized !== 'da' ? 'Animalul nu este sterilizat' : ''}
-                              />
-                              <Box sx={{ mb: 2 }}>
-                                <Typography variant="subtitle2">Deparazitare internă</Typography>
-                                {(advancedForm.dewormingInternal || []).map((d, idx) => (
-                                  <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                                    <TextField label="Produs/Tip" variant="outlined" value={d.name} onChange={e => {
-                                      const dewormingInternal = [...advancedForm.dewormingInternal];
-                                      dewormingInternal[idx].name = e.target.value;
-                                      setAdvancedForm(f => ({ ...f, dewormingInternal }));
-                                    }} sx={{ flex: 1 }} />
-                                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date} onChange={e => {
-                                      const dewormingInternal = [...advancedForm.dewormingInternal];
-                                      dewormingInternal[idx].date = e.target.value;
-                                      setAdvancedForm(f => ({ ...f, dewormingInternal }));
-                                    }} sx={{ flex: 1 }} />
-                                    <Button color="error" onClick={() => {
-                                      const dewormingInternal = advancedForm.dewormingInternal.filter((_, i) => i !== idx);
-                                      setAdvancedForm(f => ({ ...f, dewormingInternal }));
-                                    }}>Șterge</Button>
-                                  </Box>
-                                ))}
-                                <Button variant="outlined" onClick={() => setAdvancedForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare internă</Button>
-                              </Box>
-                              <Box sx={{ mb: 2 }}>
-                                <Typography variant="subtitle2">Deparazitare externă</Typography>
-                                {(advancedForm.dewormingExternal || []).map((d, idx) => (
-                                  <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                                    <TextField label="Produs/Tip" variant="outlined" value={d.name} onChange={e => {
-                                      const dewormingExternal = [...advancedForm.dewormingExternal];
-                                      dewormingExternal[idx].name = e.target.value;
-                                      setAdvancedForm(f => ({ ...f, dewormingExternal }));
-                                    }} sx={{ flex: 1 }} />
-                                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date} onChange={e => {
-                                      const dewormingExternal = [...advancedForm.dewormingExternal];
-                                      dewormingExternal[idx].date = e.target.value;
-                                      setAdvancedForm(f => ({ ...f, dewormingExternal }));
-                                    }} sx={{ flex: 1 }} />
-                                    <Button color="error" onClick={() => {
-                                      const dewormingExternal = advancedForm.dewormingExternal.filter((_, i) => i !== idx);
-                                      setAdvancedForm(f => ({ ...f, dewormingExternal }));
-                                    }}>Șterge</Button>
-                                  </Box>
-                                ))}
-                                <Button variant="outlined" onClick={() => setAdvancedForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare externă</Button>
-                              </Box>
-                              <Box sx={{ mb: 2 }}>
-                                <Typography variant="subtitle2">Vaccinuri</Typography>
-                                {(advancedForm.vaccines || []).map((v, idx) => (
-                                  <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                                    <TextField label="Nume vaccin" variant="outlined" value={v.name} onChange={e => {
-                                      const vaccines = [...advancedForm.vaccines];
-                                      vaccines[idx].name = e.target.value;
-                                      setAdvancedForm(f => ({ ...f, vaccines }));
-                                    }} sx={{ flex: 1 }} />
-                                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={v.date} onChange={e => {
-                                      const vaccines = [...advancedForm.vaccines];
-                                      vaccines[idx].date = e.target.value;
-                                      setAdvancedForm(f => ({ ...f, vaccines }));
-                                    }} sx={{ flex: 1 }} />
-                                    <Button color="error" onClick={() => {
-                                      const vaccines = advancedForm.vaccines.filter((_, i) => i !== idx);
-                                      setAdvancedForm(f => ({ ...f, vaccines }));
-                                    }}>Șterge</Button>
-                                  </Box>
-                                ))}
-                                <Button variant="outlined" onClick={() => setAdvancedForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '' }] }))}>Adaugă vaccin</Button>
-                              </Box>
-                              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                                <Button variant="contained" color="primary" onClick={async (e) => {
-                                  e.preventDefault();
-                                  // Găsește proprietarul curent
-                                  const owner = ownerList.find(o => o.pets && o.pets.some(p => p.name === selectedPet.name && p.species === selectedPet.species));
-                                  if (!owner) return;
-                                  const updatedPets = owner.pets.map(p =>
-                                    (p.name === selectedPet.name && p.species === selectedPet.species)
-                                      ? { ...p, ...advancedForm }
-                                      : p
-                                  );
-                                  await fetch(`http://localhost:4000/admin/staff/${owner.id}`,
-                                    {
-                                      method: 'PATCH',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                        ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
-                                      },
-                                      body: JSON.stringify({ pets: updatedPets })
-                                    });
-                                  setUsers(users => users.map(u => u.id === owner.id ? { ...u, pets: updatedPets } : u));
-                                  setSelectedPet(updatedPets.find(p => p.name === selectedPet.name && p.species === selectedPet.species));
-                                  setEditAdvancedMode(false);
+                      {Array.isArray(o.pets) && o.pets.length > 0 ? (
+                        <Box sx={{ mt: 1, ml: 2 }}>
+                          <Typography variant="subtitle2" color="secondary">Animale:</Typography>
+                          <List dense>
+                            {o.pets.map(pet => (
+                              <ListItem key={pet.id} sx={{ pl: 0 }}>
+                                <ListItemText
+                                  primary={<span><b>{pet.name}</b> ({pet.species})</span>}
+                                  secondary={pet.breed ? `Rasă: ${pet.breed}` : null}
+                                />
+                                <Button size="small" variant="outlined" sx={{ ml: 2 }} onClick={e => {
+                                  e.stopPropagation();
+                                  setSelectedPet(pet);
                                   setShowAdvancedPetDetails(true);
-                                  setSuccessOwner('Detaliile avansate au fost salvate cu succes!');
-                                }}>Salvează detalii</Button>
-                                <Button variant="outlined" color="secondary" onClick={() => setEditAdvancedMode(false)}>Anulează</Button>
-                              </Box>
-                            </Box>
-                          ) : (
-                            <>
-                              <Typography><b>Data sterilizării:</b> {selectedPet.sterilized === 'da' ? (selectedPet.sterilizationDate || '-') : 'N/A'}</Typography>
-                              {/* Deparazitare internă - label and button horizontally aligned, history below */}
-                              <Box sx={{ mb: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography sx={{ mr: 2 }}><b>Deparazitare internă:</b></Typography>
-                                  <Button variant="outlined" size="small" onClick={() => setShowInternalHistory(v => !v)}>
-                                    {showInternalHistory ? 'Ascunde' : 'Afișează'} istoric
-                                  </Button>
-                                </Box>
-                                {showInternalHistory && (
-                                  (selectedPet.dewormingInternal && selectedPet.dewormingInternal.length > 0) ? (
-                                    <List sx={{ mt: 1 }}>
-                                      {selectedPet.dewormingInternal.map((d, idx) => (
-                                        <ListItem key={idx}>
-                                          <ListItemText primary={d.name} secondary={d.date} />
-                                        </ListItem>
-                                      ))}
-                                    </List>
-                                  ) : (
-                                    <Typography color="text.secondary" sx={{ mt: 1 }}>Nu există deparazitări interne înregistrate.</Typography>
-                                  )
-                                )}
-                              </Box>
-                              {/* Deparazitare externă - label and button horizontally aligned, history below */}
-                              <Box sx={{ mb: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography sx={{ mr: 2 }}><b>Deparazitare externă:</b></Typography>
-                                  <Button variant="outlined" size="small" onClick={() => setShowExternalHistory(v => !v)}>
-                                    {showExternalHistory ? 'Ascunde' : 'Afișează'} istoric
-                                  </Button>
-                                </Box>
-                                {showExternalHistory && (
-                                  (selectedPet.dewormingExternal && selectedPet.dewormingExternal.length > 0) ? (
-                                    <List sx={{ mt: 1 }}>
-                                      {selectedPet.dewormingExternal.map((d, idx) => (
-                                        <ListItem key={idx}>
-                                          <ListItemText primary={d.name} secondary={d.date} />
-                                        </ListItem>
-                                      ))}
-                                    </List>
-                                  ) : (
-                                    <Typography color="text.secondary" sx={{ mt: 1 }}>Nu există deparazitări externe înregistrate.</Typography>
-                                  )
-                                )}
-                              </Box>
-                              {/* Vaccinuri - label and button horizontally aligned, history below */}
-                              <Box sx={{ mt: 2 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography variant="subtitle2" sx={{ mr: 2 }}>Vaccinuri efectuate:</Typography>
-                                  <Button variant="outlined" size="small" onClick={() => setShowVaccinesHistory(v => !v)}>
-                                    {showVaccinesHistory ? 'Ascunde' : 'Afișează'} istoric
-                                  </Button>
-                                </Box>
-                                {showVaccinesHistory && (
-                                  (selectedPet.vaccines && selectedPet.vaccines.length > 0) ? (
-                                    <List sx={{ mt: 1 }}>
-                                      {selectedPet.vaccines.map((v, idx) => (
-                                        <ListItem key={idx}>
-                                          <ListItemText primary={v.name} secondary={v.date} />
-                                        </ListItem>
-                                      ))}
-                                    </List>
-                                  ) : (
-                                    <Typography color="text.secondary" sx={{ mt: 1 }}>Nu există vaccinuri înregistrate.</Typography>
-                                  )
-                                )}
-                              </Box>
-                              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                                <Button variant="contained" color="primary" onClick={() => {
-                                  setAdvancedForm({
-                                    sterilizationDate: selectedPet.sterilizationDate || '',
-                                    vaccines: selectedPet.vaccines ? [...selectedPet.vaccines] : [],
-                                    dewormingInternal: selectedPet.dewormingInternal || '',
-                                    dewormingExternal: selectedPet.dewormingExternal || ''
-                                  });
-                                  setEditAdvancedMode(true);
-                                }}>Editează detalii avansate</Button>
-                              </Box>
-                            </>
-                          )}
+                                }}>Detalii avansate</Button>
+                              </ListItem>
+                            ))}
+                          </List>
                         </Box>
-                      )}
-                      {showDeleteConfirm && (
-                        <Box sx={{ mt: 2, p: 2, border: '1px solid #d32f2f', borderRadius: 2, background: '#fff0f0' }}>
-                          <Typography color="error" sx={{ mb: 2 }}>Ești sigur că vrei să ștergi acest animal?</Typography>
-                          <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Button variant="contained" color="error" onClick={async () => {
-                              // Găsește proprietarul curent
-                              const owner = ownerList.find(o => o.pets && o.pets.some(p => p.name === selectedPet.name && p.species === selectedPet.species));
-                              if (!owner) return;
-                              const updatedPets = owner.pets.filter(p => !(p.name === selectedPet.name && p.species === selectedPet.species));
-                              await fetch(`http://localhost:4000/admin/staff/${owner.id}`,
-                                {
-                                  method: 'PATCH',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
-                                  },
-                                  body: JSON.stringify({ pets: updatedPets })
-                                });
-                              setUsers(users => users.map(u => u.id === owner.id ? { ...u, pets: updatedPets } : u));
-                              setSelectedPet(null);
-                              setShowDeleteConfirm(false);
-                              setSuccessOwner('Animalul a fost șters cu succes!');
-                            }}>Confirmă ștergerea</Button>
-                            <Button variant="outlined" onClick={() => setShowDeleteConfirm(false)}>Renunță</Button>
-                          </Box>
-                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>Nu are animale salvate.</Typography>
                       )}
                     </>
                   )}
+                </ListItem>
+              ))}
+            </List>
+            {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+          </CardContent>
+        </Card>
+        {/* Modal for advanced pet details */}
+        <Dialog open={showAdvancedPetDetails} onClose={() => { setShowAdvancedPetDetails(false); setEditAdvancedMode(false); }} maxWidth="sm" fullWidth>
+          <DialogTitle>Detalii avansate animal</DialogTitle>
+          <DialogContent dividers>
+            {selectedPet ? (
+              !editAdvancedMode ? (
+                <Box>
+                  <Typography><b>Nume:</b> {selectedPet.name}</Typography>
+                  <Typography><b>Specie:</b> {selectedPet.species}</Typography>
+                  <Typography><b>Rasă:</b> {selectedPet.breed}</Typography>
+                  <Typography><b>Sex:</b> {selectedPet.sex}</Typography>
+                  <Typography><b>Data nașterii:</b> {selectedPet.birthDate || '-'}</Typography>
+                  <Typography><b>Culoare:</b> {selectedPet.color}</Typography>
+                  <Typography><b>Microcip:</b> {selectedPet.microchipId}</Typography>
+                  <Typography><b>Număr medalion:</b> {selectedPet.tagNumber}</Typography>
+                  <Typography><b>Sterilizat:</b> {selectedPet.sterilized}</Typography>
+                  <Typography><b>Data sterilizare:</b> {selectedPet.sterilizationDate || '-'}</Typography>
+                  {/* Istoric vaccinuri */}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" color="primary">Istoric vaccinuri</Typography>
+                    {Array.isArray(selectedPet.vaccines) && selectedPet.vaccines.length > 0 ? (
+                      <List dense>
+                        {selectedPet.vaccines.map((v, idx) => (
+                          <ListItem key={idx}>
+                            <ListItemText primary={v.name} secondary={v.date ? `Data: ${v.date}` : null} />
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : <Typography color="text.secondary">Nu există vaccinuri salvate.</Typography>}
+                  </Box>
+                  {/* Istoric deparazitări interne */}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" color="primary">Istoric deparazitări interne</Typography>
+                    {Array.isArray(selectedPet.dewormingInternal) && selectedPet.dewormingInternal.length > 0 ? (
+                      <List dense>
+                        {selectedPet.dewormingInternal.map((d, idx) => (
+                          <ListItem key={idx}>
+                            <ListItemText primary={d.name} secondary={d.date ? `Data: ${d.date}` : null} />
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : <Typography color="text.secondary">Nu există deparazitări interne salvate.</Typography>}
+                  </Box>
+                  {/* Istoric deparazitări externe */}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" color="primary">Istoric deparazitări externe</Typography>
+                    {Array.isArray(selectedPet.dewormingExternal) && selectedPet.dewormingExternal.length > 0 ? (
+                      <List dense>
+                        {selectedPet.dewormingExternal.map((d, idx) => (
+                          <ListItem key={idx}>
+                            <ListItemText primary={d.name} secondary={d.date ? `Data: ${d.date}` : null} />
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : <Typography color="text.secondary">Nu există deparazitări externe salvate.</Typography>}
+                  </Box>
+                </Box>
+              ) : (
+                <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <TextField label="Nume" value={editAdvancedForm.name || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, name: e.target.value }))} fullWidth />
+                  <TextField label="Specie" value={editAdvancedForm.species || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, species: e.target.value }))} fullWidth />
+                  <TextField label="Rasă" value={editAdvancedForm.breed || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, breed: e.target.value }))} fullWidth />
+                  <TextField label="Sex" value={editAdvancedForm.sex || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, sex: e.target.value }))} fullWidth />
+                  <TextField label="Data nașterii" type="date" InputLabelProps={{ shrink: true }} value={editAdvancedForm.birthDate || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, birthDate: e.target.value }))} fullWidth />
+                  <TextField label="Culoare" value={editAdvancedForm.color || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, color: e.target.value }))} fullWidth />
+                  <TextField label="Microcip" value={editAdvancedForm.microchipId || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, microchipId: e.target.value }))} fullWidth />
+                  <TextField label="Număr medalion" value={editAdvancedForm.tagNumber || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, tagNumber: e.target.value }))} fullWidth />
+                  <TextField label="Sterilizat" value={editAdvancedForm.sterilized || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, sterilized: e.target.value }))} fullWidth />
+                  <TextField label="Data sterilizare" type="date" InputLabelProps={{ shrink: true }} value={editAdvancedForm.sterilizationDate || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, sterilizationDate: e.target.value }))} fullWidth />
+                  {/* Vaccines */}
+                  <Typography variant="subtitle2" color="primary">Vaccinuri</Typography>
+                  {(editAdvancedForm.vaccines || []).map((v, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                      <TextField label="Nume vaccin" value={v.name || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.vaccines];
+                        arr[idx].name = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, vaccines: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} value={v.date || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.vaccines];
+                        arr[idx].date = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, vaccines: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <Button color="error" onClick={() => {
+                        setEditAdvancedForm(f => ({ ...f, vaccines: f.vaccines.filter((_, i) => i !== idx) }));
+                      }}>Șterge</Button>
+                    </Box>
+                  ))}
+                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '' }] }))}>Adaugă vaccin</Button>
+                  {/* Deworming Internal */}
+                  <Typography variant="subtitle2" color="primary">Deparazitări interne</Typography>
+                  {(editAdvancedForm.dewormingInternal || []).map((d, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                      <TextField label="Produs/Tip" value={d.name || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.dewormingInternal];
+                        arr[idx].name = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, dewormingInternal: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} value={d.date || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.dewormingInternal];
+                        arr[idx].date = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, dewormingInternal: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <Button color="error" onClick={() => {
+                        setEditAdvancedForm(f => ({ ...f, dewormingInternal: f.dewormingInternal.filter((_, i) => i !== idx) }));
+                      }}>Șterge</Button>
+                    </Box>
+                  ))}
+                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare internă</Button>
+                  {/* Deworming External */}
+                  <Typography variant="subtitle2" color="primary">Deparazitări externe</Typography>
+                  {(editAdvancedForm.dewormingExternal || []).map((d, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                      <TextField label="Produs/Tip" value={d.name || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.dewormingExternal];
+                        arr[idx].name = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, dewormingExternal: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} value={d.date || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.dewormingExternal];
+                        arr[idx].date = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, dewormingExternal: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <Button color="error" onClick={() => {
+                        setEditAdvancedForm(f => ({ ...f, dewormingExternal: f.dewormingExternal.filter((_, i) => i !== idx) }));
+                      }}>Șterge</Button>
+                    </Box>
+                  ))}
+                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare externă</Button>
+                </Box>
+              )
+            ) : <Typography>Nu există detalii pentru acest animal.</Typography>}
+          </DialogContent>
+          <DialogActions>
+            {!editAdvancedMode ? (
+              <Button onClick={() => { setEditAdvancedMode(true); setEditAdvancedForm(selectedPet); }} color="primary">Editează</Button>
+            ) : (
+              <>
+                <Button onClick={async () => {
+                  // Save changes to backend
+                  try {
+                    // PATCH pet details
+                    await fetch(`http://localhost:4000/api/pets/${editAdvancedForm.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                      body: JSON.stringify({
+                        ...editAdvancedForm,
+                        birthDate: editAdvancedForm.birthDate ? editAdvancedForm.birthDate : null,
+                        sterilizationDate: editAdvancedForm.sterilizationDate ? editAdvancedForm.sterilizationDate : null
+                      })
+                    });
+                    // PATCH vaccines
+                    if (editAdvancedForm.vaccines && editAdvancedForm.vaccines.length > 0) {
+                      await Promise.all(editAdvancedForm.vaccines.map(v =>
+                        fetch(`http://localhost:4000/api/vaccines/${v.id || ''}`, {
+                          method: v.id ? 'PATCH' : 'POST',
+                          headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                          body: JSON.stringify({ pet_id: editAdvancedForm.id, ...v })
+                        })
+                      ));
+                    }
+                    // PATCH dewormings
+                    if (editAdvancedForm.dewormingInternal && editAdvancedForm.dewormingInternal.length > 0) {
+                      await Promise.all(editAdvancedForm.dewormingInternal.map(d =>
+                        fetch(`http://localhost:4000/api/dewormings/${d.id || ''}`, {
+                          method: d.id ? 'PATCH' : 'POST',
+                          headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                          body: JSON.stringify({ pet_id: editAdvancedForm.id, ...d, type: 'internal' })
+                        })
+                      ));
+                    }
+                    if (editAdvancedForm.dewormingExternal && editAdvancedForm.dewormingExternal.length > 0) {
+                      await Promise.all(editAdvancedForm.dewormingExternal.map(d =>
+                        fetch(`http://localhost:4000/api/dewormings/${d.id || ''}`, {
+                          method: d.id ? 'PATCH' : 'POST',
+                          headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                          body: JSON.stringify({ pet_id: editAdvancedForm.id, ...d, type: 'external' })
+                        })
+                      ));
+                    }
+                    // Refetch owners and pets
+                    await fetchOwnersAndPets();
+                    setShowAdvancedPetDetails(false);
+                    setEditAdvancedMode(false);
+                  } catch (err) {
+                    alert('Eroare la salvarea modificărilor!');
+                  }
+                }} color="primary">Salvează</Button>
+                <Button onClick={() => setEditAdvancedMode(false)} color="secondary">Anulează</Button>
+              </>
+            )}
+            <Button onClick={() => { setShowAdvancedPetDetails(false); setEditAdvancedMode(false); }} color="inherit">Închide</Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    );
+  }
+
+  if (!proprietariOnly) {
+    // Administrare personal
+    return (
+      <Box>
+        <Card sx={{ mb: 4, boxShadow: 3, bgcolor: 'background.paper' }}>
+          <CardContent>
+            <Typography variant="h5" align="center" color="primary" gutterBottom>Administrare personal</Typography>
+            <Box sx={{ mb: 2 }}>
+              {!showStaffForm && (
+                <Button variant="contained" color="primary" onClick={() => {
+                  setShowStaffForm(true);
+                  setEditingStaff(null);
+                  setStaffForm({ username: '', password: '', role: 'vet', fullName: '', email: '', phone: '', specialization: '', address: '' });
+                }}>Adaugă personal</Button>
+              )}
+              {showStaffForm && (
+                <Box component="form" onSubmit={handleAddStaff} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                  <TextField label="Nume utilizator" variant="outlined" value={staffForm.username} onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))} fullWidth disabled={!!editingStaff} />
+                  <TextField label="Parolă" type="password" variant="outlined" value={staffForm.password} onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} fullWidth />
+                  <TextField label="Nume complet" variant="outlined" value={staffForm.fullName} onChange={e => setStaffForm(f => ({ ...f, fullName: e.target.value }))} fullWidth />
+                  <TextField label="Email" variant="outlined" value={staffForm.email} onChange={e => setStaffForm(f => ({ ...f, email: e.target.value }))} fullWidth />
+                  <TextField label="Telefon" variant="outlined" value={staffForm.phone} onChange={e => setStaffForm(f => ({ ...f, phone: e.target.value }))} fullWidth />
+                  <TextField label="Specializare" variant="outlined" value={staffForm.specialization || ''} onChange={e => setStaffForm(f => ({ ...f, specialization: e.target.value }))} fullWidth />
+                  <TextField label="Adresă" variant="outlined" value={staffForm.address || ''} onChange={e => setStaffForm(f => ({ ...f, address: e.target.value }))} fullWidth />
+                  <TextField select label="Rol" value={staffForm.role} onChange={e => setStaffForm(f => ({ ...f, role: e.target.value }))} SelectProps={{ native: true }} fullWidth>
+                    <option value="vet">Medic veterinar</option>
+                    <option value="asistent">Asistent</option>
+                    <option value="receptioner">Receptioner</option>
+                  </TextField>
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button type="submit" variant="contained" color="primary">{editingStaff ? 'Salvează modificările' : 'Salvează'}</Button>
+                    <Button variant="outlined" color="secondary" onClick={() => { setShowStaffForm(false); setEditingStaff(null); }}>Anulează</Button>
+                  </Box>
                 </Box>
               )}
+            </Box>
+            <Typography variant="h6" color="primary" sx={{ mt: 2 }}>Listă personal</Typography>
+            <List>
+              {staffList.length === 0 && <ListItem><ListItemText primary="Nu există personal adăugat." /></ListItem>}
+              {staffList.map((s) => (
+                <ListItem key={s.id} divider sx={{ cursor: 'pointer', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box onClick={() => {
+                      setShowStaffForm(true);
+                      setEditingStaff(s);
+                      setStaffForm({
+                        username: s.username,
+                        password: '',
+                        role: s.role,
+                        fullName: s.fullName || '',
+                        email: s.email || '',
+                        phone: s.phone || '',
+                        specialization: s.specialization || '',
+                        address: s.address || ''
+                      });
+                    }} sx={{ flex: 1 }}>
+                      <ListItemText
+                        primary={<><b>{s.username}</b>{s.fullName && <> &mdash; {s.fullName}</>}{s.phone && <> &mdash; {s.phone}</>}</>}
+                        secondary={s.email && <span><b>Email:</b> {s.email}</span>}
+                      />
+                    </Box>
+                  </Box>
+                </ListItem>
+              ))}
             </List>
             {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
           </CardContent>
@@ -630,74 +658,5 @@
     );
   }
 
-  // Administrare personal
-  return (
-    <Box>
-      <Card sx={{ mb: 4, boxShadow: 3, bgcolor: 'background.paper' }}>
-        <CardContent>
-          <Typography variant="h5" align="center" color="primary" gutterBottom>Administrare personal</Typography>
-          <Box sx={{ mb: 2 }}>
-            {!showStaffForm && (
-              <Button variant="contained" color="primary" onClick={() => { setShowStaffForm(true); setEditingStaff(null); }}>Adaugă personal</Button>
-            )}
-            {showStaffForm && (
-              <Box component="form" onSubmit={handleAddStaff} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                <TextField label="Nume utilizator" variant="outlined" value={staffForm.username} onChange={e => setStaffForm(f => ({ ...f, username: e.target.value }))} fullWidth disabled={!!editingStaff} />
-                <TextField label="Parolă" type="password" variant="outlined" value={staffForm.password} onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} fullWidth />
-                <TextField label="Nume complet" variant="outlined" value={staffForm.fullName} onChange={e => setStaffForm(f => ({ ...f, fullName: e.target.value }))} fullWidth />
-                <TextField label="Email" variant="outlined" value={staffForm.email} onChange={e => setStaffForm(f => ({ ...f, email: e.target.value }))} fullWidth />
-                <TextField label="Telefon" variant="outlined" value={staffForm.phone} onChange={e => setStaffForm(f => ({ ...f, phone: e.target.value }))} fullWidth />
-                  <TextField label="Adresa" variant="outlined" value={staffForm.address} onChange={e => setStaffForm(f => ({ ...f, address: e.target.value }))} fullWidth />
-                <TextField label="Specializare" variant="outlined" value={staffForm.specialization} onChange={e => setStaffForm(f => ({ ...f, specialization: e.target.value }))} fullWidth />
-                <TextField select label="Rol personal" value={staffForm.role} onChange={e => setStaffForm(f => ({ ...f, role: e.target.value }))} SelectProps={{ native: true }} fullWidth>
-                  <option value="clinic_admin">Administrator clinică</option>
-                  <option value="vet">Medic veterinar</option>
-                  <option value="assistant">Asistent</option>
-                </TextField>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button type="submit" variant="contained" color="primary">{editingStaff ? 'Salvează modificările' : 'Salvează'}</Button>
-                  <Button variant="outlined" color="secondary" onClick={() => { setShowStaffForm(false); setEditingStaff(null); }}>Anulează</Button>
-                </Box>
-              </Box>
-            )}
-          </Box>
-          <Typography variant="h6" color="primary" sx={{ mt: 2 }}>Listă personal</Typography>
-          <List>
-            {staffList.length === 0 && <ListItem><ListItemText primary="Nu există personal adăugat." /></ListItem>}
-            {staffList.map((s) => (
-              <ListItem key={s.id} divider button onClick={() => {
-                setShowStaffForm(true);
-                setEditingStaff(s);
-                setStaffForm({
-                  username: s.username,
-                  password: '',
-                  role: s.role,
-                  fullName: s.fullName || '',
-                  email: s.email || '',
-                  phone: s.phone || '',
-                  specialization: s.specialization || '',
-                  address: s.address || ''
-                });
-              }} sx={{ cursor: 'pointer' }}>
-                <ListItemText
-                  primary={`${s.username} (${s.role})`}
-                  secondary={
-                    <>
-                      {s.fullName && <span><b>Nume complet:</b> {s.fullName}<br /></span>}
-                      {s.email && <span><b>Email:</b> {s.email}<br /></span>}
-                      {s.phone && <span><b>Telefon:</b> {s.phone}<br /></span>}
-                      {s.specialization && <span><b>Specializare:</b> {s.specialization}</span>}
-                    </>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-        </CardContent>
-      </Card>
-    </Box>
-  );
 }
-
 export default StaffManager;

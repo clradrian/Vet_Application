@@ -1,5 +1,3 @@
-
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -8,7 +6,6 @@ const userModel = require('./userModel');
 const petModel = require('./petModel');
 const bcrypt = require('bcrypt');
 const app = express();
-// ...existing code...
 app.use(cors());
 app.use(express.json());
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
@@ -40,18 +37,26 @@ app.get('/api/pets/:owner_id', async (req, res) => {
 
 // Add a new pet
 app.post('/api/pets', async (req, res) => {
+  console.log('POST /api/pets body:', req.body);
   const { owner_id, name, species, breed, sex, birthDate, color, microchipId, tagNumber, sterilized, sterilizationDate, photo } = req.body;
   if (!owner_id || !name || !species) {
+    console.error('Missing required fields:', { owner_id, name, species });
     return res.status(400).json({ error: 'Owner, name, and species required.' });
   }
-  const pet = await petModel.createPet({ owner_id, name, species, breed, sex, birthDate, color, microchipId, tagNumber, sterilized, sterilizationDate, photo });
-  res.status(201).json(pet);
+  try {
+    const pet = await petModel.createPet({ owner_id, name, species, breed, sex, birthDate, color, microchipId, tagNumber, sterilized, sterilizationDate, photo });
+    res.status(201).json(pet);
+  } catch (err) {
+    console.error('DB error saving pet:', err);
+    res.status(500).json({ error: 'Database error saving pet', details: err.message });
+  }
 });
 
 // Admin dashboard stats (sample data)
-app.get('/admin/dashboard', requireAdmin, (req, res) => {
+app.get('/admin/dashboard', requireAdmin, async (req, res) => {
+  // TODO: Replace with a real DB query if needed
   res.json({
-    activePatients: pets.length,
+    activePatients: 0, // or use a DB query to count pets
     dosesAdministered: 42,
     dailyAppointments: 7,
     treatmentComplianceRate: '95%'
