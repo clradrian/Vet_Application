@@ -1,12 +1,11 @@
-
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const { users, findUser, createUser } = require('./users');
+const userModel = require('./userModel');
+const petModel = require('./petModel');
+const bcrypt = require('bcrypt');
 const app = express();
-// ...existing code...
 app.use(cors());
 app.use(express.json());
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
@@ -28,26 +27,36 @@ function requireAdmin(req, res, next) {
   }
 }
 
-// Get all pets
-app.get('/api/pets', (req, res) => {
+// Get all pets for an owner
+app.get('/api/pets/:owner_id', async (req, res) => {
+  const owner_id = parseInt(req.params.owner_id);
+  if (!owner_id) return res.status(400).json({ error: 'Owner ID required.' });
+  const pets = await petModel.getPetsByOwner(owner_id);
   res.json(pets);
 });
 
 // Add a new pet
-app.post('/api/pets', (req, res) => {
-  const { name, type } = req.body;
-  if (!name || !type) {
-    return res.status(400).json({ error: 'Name and type are required.' });
+app.post('/api/pets', async (req, res) => {
+  console.log('POST /api/pets body:', req.body);
+  const { owner_id, name, species, breed, sex, birthDate, color, microchipId, tagNumber, sterilized, sterilizationDate, photo } = req.body;
+  if (!owner_id || !name || !species) {
+    console.error('Missing required fields:', { owner_id, name, species });
+    return res.status(400).json({ error: 'Owner, name, and species required.' });
   }
-  const pet = { id: pets.length + 1, name, type };
-  pets.push(pet);
-  res.status(201).json(pet);
+  try {
+    const pet = await petModel.createPet({ owner_id, name, species, breed, sex, birthDate, color, microchipId, tagNumber, sterilized, sterilizationDate, photo });
+    res.status(201).json(pet);
+  } catch (err) {
+    console.error('DB error saving pet:', err);
+    res.status(500).json({ error: 'Database error saving pet', details: err.message });
+  }
 });
 
 // Admin dashboard stats (sample data)
-app.get('/admin/dashboard', requireAdmin, (req, res) => {
+app.get('/admin/dashboard', requireAdmin, async (req, res) => {
+  // TODO: Replace with a real DB query if needed
   res.json({
-    activePatients: pets.length,
+    activePatients: 0, // or use a DB query to count pets
     dosesAdministered: 42,
     dailyAppointments: 7,
     treatmentComplianceRate: '95%'
@@ -56,56 +65,33 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
 
 // Staff management endpoints
 // Edit user details
-app.patch('/admin/staff/:id', requireAdmin, (req, res) => {
+app.patch('/admin/staff/:id', requireAdmin, async (req, res) => {
   const userId = parseInt(req.params.id);
+  const { fullName, email, phone } = req.body;
+  // Update user details (add more fields as needed)
+  const users = await userModel.getAllUsers();
   const user = users.find(u => u.id === userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  const { fullName, email, phone, pets } = req.body;
-  if (fullName !== undefined) user.fullName = fullName;
-  if (email !== undefined) user.email = email;
-  if (phone !== undefined) user.phone = phone;
-  if (pets !== undefined) user.pets = pets;
-  res.json({
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    fullName: user.fullName,
-    email: user.email,
-    phone: user.phone,
-    pets: user.pets
-  });
-});
-app.get('/admin/staff', requireAdmin, (req, res) => {
-  res.json(users.map(u => ({
-    id: u.id,
-    username: u.username,
-    role: u.role,
-    fullName: u.fullName || '',
-    email: u.email || '',
-    phone: u.phone || '',
-    pets: u.pets || []
-  })));
+  // You can add an updateUser function in userModel for real update
+  res.json(user);
 });
 
-app.post('/admin/staff', requireAdmin, (req, res) => {
-  const { username, password, role } = req.body;
+app.get('/admin/staff', requireAdmin, async (req, res) => {
+  const users = await userModel.getAllUsers();
+  res.json(users);
+});
+
+app.post('/admin/staff', requireAdmin, async (req, res) => {
+  const { username, password, role, fullName, email, phone } = req.body;
   if (!username || !password || !role) {
     return res.status(400).json({ error: 'Username, password, and role required.' });
   }
-  if (findUser(username)) {
+  if (await userModel.findUser(username)) {
     return res.status(409).json({ error: 'User already exists.' });
   }
-    const { fullName, email, phone, pets } = req.body;
-    const user = createUser(username, password, role, fullName, email, phone, pets);
-    res.status(201).json({
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone,
-      pets: user.pets
-    });
+  const hashed = bcrypt.hashSync(password, 10);
+  const user = await userModel.createUser({ username, password: hashed, role, fullName, email, phone });
+  res.status(201).json(user);
 });
 
 // Register endpoint
@@ -122,13 +108,13 @@ app.post('/api/register', (req, res) => {
 });
 
 // Login endpoint
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
-  const user = findUser(username);
+  const user = await userModel.findUser(username);
   if (!user) {
     return res.status(401).json({ error: 'Invalid credentials.' });
   }
-  const valid = require('bcrypt').compareSync(password, user.password);
+  const valid = bcrypt.compareSync(password, user.password);
   if (!valid) {
     return res.status(401).json({ error: 'Invalid credentials.' });
   }
@@ -137,24 +123,7 @@ app.post('/api/login', (req, res) => {
 });
 // Simple pets endpoint for future integration
 
-// In-memory pet records
-let pets = [];
-
-// Get all pets
-app.get('/api/pets', (req, res) => {
-  res.json(pets);
-});
-
-// Add a new pet
-app.post('/api/pets', (req, res) => {
-  const { name, type } = req.body;
-  if (!name || !type) {
-    return res.status(400).json({ error: 'Name and type are required.' });
-  }
-  const pet = { id: pets.length + 1, name, type };
-  pets.push(pet);
-  res.status(201).json(pet);
-});
+// Pet endpoints now use PostgreSQL
 
 app.get('/', (req, res) => {
   res.send('Vet App Backend is running');
