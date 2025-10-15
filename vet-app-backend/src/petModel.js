@@ -13,5 +13,8 @@ module.exports = {
     const { rows } = await pool.query('SELECT * FROM pets WHERE owner_id = $1', [owner_id]);
     return rows;
   },
+  async deletePet(id) {
+    await pool.query('DELETE FROM pets WHERE id = $1', [id]);
+  },
   // Adaugă și alte funcții după nevoie
 };

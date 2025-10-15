@@ -13,6 +13,7 @@ import React, { useEffect, useState } from 'react';
     const [selectedPet, setSelectedPet] = useState(null);
   // State pentru confirmare ștergere animal
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [petToDelete, setPetToDelete] = useState(null);
   // State pentru editare animal
   const [editPetMode, setEditPetMode] = useState(false);
     const [editPetForm, setEditPetForm] = useState({
@@ -122,9 +123,10 @@ import React, { useEffect, useState } from 'react';
         data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to add owner');
         setUsers([...users, data]);
-        setEditingOwner(null);
+        setEditingOwner(data); // set to new owner
         setShowOwnerForm(false);
         setSuccessOwner('Proprietarul a fost adăugat cu succes!');
+        setShowPetForm(true); // open pet form automatically
       }
     } catch (err) {
       setError(err.message);
@@ -159,7 +161,12 @@ import React, { useEffect, useState } from 'react';
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button type="submit" variant="contained" color="primary">{editingOwner ? 'Salvează modificările' : 'Salvează'}</Button>
                     <Button variant="outlined" color="secondary" onClick={() => { setShowOwnerForm(false); setEditingOwner(null); }}>Anulează</Button>
-                    <Button variant="outlined" color="primary" onClick={() => setShowPetForm(true)}>Adaugă animal de companie</Button>
+                    {/* Show add pet button only when editing an existing owner */}
+                    {editingOwner && (
+                      <Button variant="outlined" color="primary" onClick={() => setShowPetForm(true)}>
+                        Adaugă animal de companie
+                      </Button>
+                    )}
                   </Box>
                 </Box>
               )}
@@ -196,9 +203,14 @@ import React, { useEffect, useState } from 'react';
                       arr[idx].name = e.target.value;
                       setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
                     }} sx={{ flex: 1 }} />
-                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
+                    <TextField label="Data administrare" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
                       const arr = [...editPetForm.dewormingInternal];
                       arr[idx].date = e.target.value;
+                      setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
+                    }} sx={{ flex: 1 }} />
+                    <TextField label="Data expirare" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.expiryDate || ''} onChange={e => {
+                      const arr = [...editPetForm.dewormingInternal];
+                      arr[idx].expiryDate = e.target.value;
                       setEditPetForm(f => ({ ...f, dewormingInternal: arr }));
                     }} sx={{ flex: 1 }} />
                     <Button color="error" onClick={() => {
@@ -207,7 +219,7 @@ import React, { useEffect, useState } from 'react';
                     }}>Șterge</Button>
                   </Box>
                 ))}
-                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare internă</Button>
+                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă deparazitare internă</Button>
                 {/* Deworming External */}
                 {(editPetForm.dewormingExternal || []).map((d, idx) => (
                   <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
@@ -216,9 +228,14 @@ import React, { useEffect, useState } from 'react';
                       arr[idx].name = e.target.value;
                       setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
                     }} sx={{ flex: 1 }} />
-                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
+                    <TextField label="Data administrare" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.date || ''} onChange={e => {
                       const arr = [...editPetForm.dewormingExternal];
                       arr[idx].date = e.target.value;
+                      setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
+                    }} sx={{ flex: 1 }} />
+                    <TextField label="Data expirare" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={d.expiryDate || ''} onChange={e => {
+                      const arr = [...editPetForm.dewormingExternal];
+                      arr[idx].expiryDate = e.target.value;
                       setEditPetForm(f => ({ ...f, dewormingExternal: arr }));
                     }} sx={{ flex: 1 }} />
                     <Button color="error" onClick={() => {
@@ -227,7 +244,7 @@ import React, { useEffect, useState } from 'react';
                     }}>Șterge</Button>
                   </Box>
                 ))}
-                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare externă</Button>
+                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă deparazitare externă</Button>
                 {/* Vaccines */}
                 {(editPetForm.vaccines || []).map((v, idx) => (
                   <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
@@ -236,9 +253,14 @@ import React, { useEffect, useState } from 'react';
                       vaccines[idx].name = e.target.value;
                       setEditPetForm(f => ({ ...f, vaccines }));
                     }} sx={{ flex: 1 }} />
-                    <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={v.date} onChange={e => {
+                    <TextField label="Data administrare" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={v.date} onChange={e => {
                       const vaccines = [...editPetForm.vaccines];
                       vaccines[idx].date = e.target.value;
+                      setEditPetForm(f => ({ ...f, vaccines }));
+                    }} sx={{ flex: 1 }} />
+                    <TextField label="Data expirare" type="date" InputLabelProps={{ shrink: true }} variant="outlined" value={v.expiryDate} onChange={e => {
+                      const vaccines = [...editPetForm.vaccines];
+                      vaccines[idx].expiryDate = e.target.value;
                       setEditPetForm(f => ({ ...f, vaccines }));
                     }} sx={{ flex: 1 }} />
                     <Button color="error" onClick={() => {
@@ -247,7 +269,7 @@ import React, { useEffect, useState } from 'react';
                     }}>Șterge</Button>
                   </Box>
                 ))}
-                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '' }] }))}>Adaugă vaccin</Button>
+                <Button variant="outlined" onClick={() => setEditPetForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă vaccin</Button>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button
                     variant="contained"
@@ -284,8 +306,8 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.vaccines.map(v =>
                               fetch('http://localhost:4000/api/vaccines', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
-                                body: JSON.stringify({ pet_id: petData.id, ...v })
+                                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                                body: JSON.stringify({ pet_id: petData.id, name: v.name, date: v.date, expiryDate: v.expiryDate })
                               })
                             ));
                           }
@@ -294,8 +316,8 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.dewormingInternal.map(d =>
                               fetch('http://localhost:4000/api/dewormings', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
-                                body: JSON.stringify({ pet_id: petData.id, ...d, type: 'internal' })
+                                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                                body: JSON.stringify({ pet_id: petData.id, name: d.name, date: d.date, expiryDate: d.expiryDate, type: 'internal' })
                               })
                             ));
                           }
@@ -304,8 +326,8 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.dewormingExternal.map(d =>
                               fetch('http://localhost:4000/api/dewormings', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
-                                body: JSON.stringify({ pet_id: petData.id, ...d, type: 'external' })
+                                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                                body: JSON.stringify({ pet_id: petData.id, name: d.name, date: d.date, expiryDate: d.expiryDate, type: 'external' })
                               })
                             ));
                           }
@@ -317,8 +339,10 @@ import React, { useEffect, useState } from 'react';
                           return;
                         }
                       }
+                      // Always refetch after adding a pet
+                      await fetchOwnersAndPets();
                       setShowPetForm(false);
-                      setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
+                      setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null, vaccines: [], dewormingInternal: [], dewormingExternal: [] });
                     }}
                   >Salvează animal</Button>
                   <Button variant="outlined" color="secondary" onClick={() => setShowPetForm(false)}>Anulează</Button>
@@ -373,6 +397,11 @@ import React, { useEffect, useState } from 'react';
                                   setSelectedPet(pet);
                                   setShowAdvancedPetDetails(true);
                                 }}>Detalii avansate</Button>
+                                <Button size="small" color="error" variant="outlined" sx={{ ml: 1 }} onClick={e => {
+                                  e.stopPropagation();
+                                  setPetToDelete(pet);
+                                  setShowDeleteConfirm(true);
+                                }}>Șterge</Button>
                               </ListItem>
                             ))}
                           </List>
@@ -466,9 +495,14 @@ import React, { useEffect, useState } from 'react';
                         arr[idx].name = e.target.value;
                         setEditAdvancedForm(f => ({ ...f, vaccines: arr }));
                       }} sx={{ flex: 1 }} />
-                      <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} value={v.date || ''} onChange={e => {
+                      <TextField label="Data administrare" type="date" InputLabelProps={{ shrink: true }} value={v.date || ''} onChange={e => {
                         const arr = [...editAdvancedForm.vaccines];
                         arr[idx].date = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, vaccines: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <TextField label="Data expirare" type="date" InputLabelProps={{ shrink: true }} value={v.expiryDate || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.vaccines];
+                        arr[idx].expiryDate = e.target.value;
                         setEditAdvancedForm(f => ({ ...f, vaccines: arr }));
                       }} sx={{ flex: 1 }} />
                       <Button color="error" onClick={() => {
@@ -476,7 +510,7 @@ import React, { useEffect, useState } from 'react';
                       }}>Șterge</Button>
                     </Box>
                   ))}
-                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '' }] }))}>Adaugă vaccin</Button>
+                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă vaccin</Button>
                   {/* Deworming Internal */}
                   <Typography variant="subtitle2" color="primary">Deparazitări interne</Typography>
                   {(editAdvancedForm.dewormingInternal || []).map((d, idx) => (
@@ -486,9 +520,14 @@ import React, { useEffect, useState } from 'react';
                         arr[idx].name = e.target.value;
                         setEditAdvancedForm(f => ({ ...f, dewormingInternal: arr }));
                       }} sx={{ flex: 1 }} />
-                      <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} value={d.date || ''} onChange={e => {
+                      <TextField label="Data administrare" type="date" InputLabelProps={{ shrink: true }} value={d.date || ''} onChange={e => {
                         const arr = [...editAdvancedForm.dewormingInternal];
                         arr[idx].date = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, dewormingInternal: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <TextField label="Data expirare" type="date" InputLabelProps={{ shrink: true }} value={d.expiryDate || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.dewormingInternal];
+                        arr[idx].expiryDate = e.target.value;
                         setEditAdvancedForm(f => ({ ...f, dewormingInternal: arr }));
                       }} sx={{ flex: 1 }} />
                       <Button color="error" onClick={() => {
@@ -496,7 +535,7 @@ import React, { useEffect, useState } from 'react';
                       }}>Șterge</Button>
                     </Box>
                   ))}
-                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare internă</Button>
+                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă deparazitare internă</Button>
                   {/* Deworming External */}
                   <Typography variant="subtitle2" color="primary">Deparazitări externe</Typography>
                   {(editAdvancedForm.dewormingExternal || []).map((d, idx) => (
@@ -506,9 +545,14 @@ import React, { useEffect, useState } from 'react';
                         arr[idx].name = e.target.value;
                         setEditAdvancedForm(f => ({ ...f, dewormingExternal: arr }));
                       }} sx={{ flex: 1 }} />
-                      <TextField label="Data" type="date" InputLabelProps={{ shrink: true }} value={d.date || ''} onChange={e => {
+                      <TextField label="Data administrare" type="date" InputLabelProps={{ shrink: true }} value={d.date || ''} onChange={e => {
                         const arr = [...editAdvancedForm.dewormingExternal];
                         arr[idx].date = e.target.value;
+                        setEditAdvancedForm(f => ({ ...f, dewormingExternal: arr }));
+                      }} sx={{ flex: 1 }} />
+                      <TextField label="Data expirare" type="date" InputLabelProps={{ shrink: true }} value={d.expiryDate || ''} onChange={e => {
+                        const arr = [...editAdvancedForm.dewormingExternal];
+                        arr[idx].expiryDate = e.target.value;
                         setEditAdvancedForm(f => ({ ...f, dewormingExternal: arr }));
                       }} sx={{ flex: 1 }} />
                       <Button color="error" onClick={() => {
@@ -516,7 +560,7 @@ import React, { useEffect, useState } from 'react';
                       }}>Șterge</Button>
                     </Box>
                   ))}
-                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '' }] }))}>Adaugă deparazitare externă</Button>
+                  <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, dewormingExternal: [...(f.dewormingExternal || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă deparazitare externă</Button>
                 </Box>
               )
             ) : <Typography>Nu există detalii pentru acest animal.</Typography>}
@@ -544,8 +588,8 @@ import React, { useEffect, useState } from 'react';
                       await Promise.all(editAdvancedForm.vaccines.map(v =>
                         fetch(`http://localhost:4000/api/vaccines/${v.id || ''}`, {
                           method: v.id ? 'PATCH' : 'POST',
-                          headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
-                          body: JSON.stringify({ pet_id: editAdvancedForm.id, ...v })
+                          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                          body: JSON.stringify({ pet_id: editAdvancedForm.id, name: v.name, date: v.date, expiryDate: v.expiryDate })
                         })
                       ));
                     }
@@ -554,8 +598,8 @@ import React, { useEffect, useState } from 'react';
                       await Promise.all(editAdvancedForm.dewormingInternal.map(d =>
                         fetch(`http://localhost:4000/api/dewormings/${d.id || ''}`, {
                           method: d.id ? 'PATCH' : 'POST',
-                          headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
-                          body: JSON.stringify({ pet_id: editAdvancedForm.id, ...d, type: 'internal' })
+                          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                          body: JSON.stringify({ pet_id: editAdvancedForm.id, name: d.name, date: d.date, expiryDate: d.expiryDate, type: 'internal' })
                         })
                       ));
                     }
@@ -563,8 +607,8 @@ import React, { useEffect, useState } from 'react';
                       await Promise.all(editAdvancedForm.dewormingExternal.map(d =>
                         fetch(`http://localhost:4000/api/dewormings/${d.id || ''}`, {
                           method: d.id ? 'PATCH' : 'POST',
-                          headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
-                          body: JSON.stringify({ pet_id: editAdvancedForm.id, ...d, type: 'external' })
+                          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                          body: JSON.stringify({ pet_id: editAdvancedForm.id, name: d.name, date: d.date, expiryDate: d.expiryDate, type: 'external' })
                         })
                       ));
                     }
@@ -580,6 +624,29 @@ import React, { useEffect, useState } from 'react';
               </>
             )}
             <Button onClick={() => { setShowAdvancedPetDetails(false); setEditAdvancedMode(false); }} color="inherit">Închide</Button>
+          </DialogActions>
+        </Dialog>
+        {/* Confirmare ștergere animal */}
+        <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)}>
+          <DialogTitle>Confirmare ștergere</DialogTitle>
+          <DialogContent>
+            <Typography>Sigur doriți să ștergeți animalul <b>{petToDelete?.name}</b>? Această acțiune nu poate fi anulată.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowDeleteConfirm(false)} color="inherit">Anulează</Button>
+            <Button color="error" onClick={async () => {
+              try {
+                await fetch(`http://localhost:4000/api/pets/${petToDelete.id}`, {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+                });
+                setShowDeleteConfirm(false);
+                setPetToDelete(null);
+                await fetchOwnersAndPets();
+              } catch (err) {
+                alert('Eroare la ștergerea animalului!');
+              }
+            }}>Șterge</Button>
           </DialogActions>
         </Dialog>
       </Box>

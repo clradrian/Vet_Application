@@ -52,6 +52,19 @@ app.post('/api/pets', async (req, res) => {
   }
 });
 
+// Delete a pet by ID
+app.delete('/api/pets/:id', requireAdmin, async (req, res) => {
+  const petId = parseInt(req.params.id);
+  if (!petId) return res.status(400).json({ error: 'Pet ID required.' });
+  try {
+    await petModel.deletePet(petId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('DB error deleting pet:', err);
+    res.status(500).json({ error: 'Database error deleting pet', details: err.message });
+  }
+});
+
 // Admin dashboard stats (sample data)
 app.get('/admin/dashboard', requireAdmin, async (req, res) => {
   // TODO: Replace with a real DB query if needed
@@ -145,5 +158,61 @@ app.get('/api/me', (req, res) => {
     res.json({ id: decoded.id, username: decoded.username, role: decoded.role });
   } catch {
     return res.status(401).json({ error: 'Token invalid.' });
+  }
+});
+// Add vaccine
+app.post('/api/vaccines', async (req, res) => {
+  const { pet_id, name, date, expiryDate } = req.body;
+  if (!pet_id || !name || !date) return res.status(400).json({ error: 'pet_id, name, and date required.' });
+  try {
+    const { rows } = await require('./db').query(
+      'INSERT INTO vaccines (pet_id, name, date, expiryDate) VALUES ($1, $2, $3, $4) RETURNING *',
+      [pet_id, name, date, expiryDate]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.message });
+  }
+});
+// Update vaccine
+app.patch('/api/vaccines/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { name, date, expiryDate } = req.body;
+  try {
+    const { rows } = await require('./db').query(
+      'UPDATE vaccines SET name=$1, date=$2, expiryDate=$3 WHERE id=$4 RETURNING *',
+      [name, date, expiryDate, id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.message });
+  }
+});
+// Add deworming
+app.post('/api/dewormings', async (req, res) => {
+  const { pet_id, type, name, date, expiryDate } = req.body;
+  if (!pet_id || !type || !name || !date) return res.status(400).json({ error: 'pet_id, type, name, and date required.' });
+  try {
+    const { rows } = await require('./db').query(
+      'INSERT INTO dewormings (pet_id, type, name, date, expiryDate) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [pet_id, type, name, date, expiryDate]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.message });
+  }
+});
+// Update deworming
+app.patch('/api/dewormings/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { type, name, date, expiryDate } = req.body;
+  try {
+    const { rows } = await require('./db').query(
+      'UPDATE dewormings SET type=$1, name=$2, date=$3, expiryDate=$4 WHERE id=$5 RETURNING *',
+      [type, name, date, expiryDate, id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.message });
   }
 });

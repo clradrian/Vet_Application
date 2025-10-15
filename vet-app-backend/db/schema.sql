@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS vaccines (
   id SERIAL PRIMARY KEY,
   pet_id INTEGER REFERENCES pets(id) ON DELETE CASCADE,
   name VARCHAR(100),
-  date DATE
+  date DATE,
+  expiryDate DATE
 );
 
 -- Tabel deparazitari
@@ -40,5 +41,6 @@ CREATE TABLE IF NOT EXISTS dewormings (
   pet_id INTEGER REFERENCES pets(id) ON DELETE CASCADE,
   type VARCHAR(20), -- 'internal' sau 'external'
   name VARCHAR(100),
-  date DATE
+  date DATE,
+  expiryDate DATE
 );
