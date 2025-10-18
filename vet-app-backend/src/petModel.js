@@ -15,8 +15,9 @@ module.exports = {
 
     // For each pet, fetch vaccines and dewormings and attach them
     const petsWithDetails = await Promise.all(pets.map(async (pet) => {
-      const { rows: vaccines } = await pool.query('SELECT id, name, date, expiryDate FROM vaccines WHERE pet_id = $1 ORDER BY date DESC', [pet.id]);
-      const { rows: dewormings } = await pool.query('SELECT id, type, name, date, expiryDate FROM dewormings WHERE pet_id = $1 ORDER BY date DESC', [pet.id]);
+  const { rows: vaccines } = await pool.query('SELECT id, name, date, expiryDate FROM vaccines WHERE pet_id = $1 ORDER BY date DESC', [pet.id]);
+  const { rows: dewormings } = await pool.query('SELECT id, type, name, date, expiryDate FROM dewormings WHERE pet_id = $1 ORDER BY date DESC', [pet.id]);
+  const { rows: schedules } = await pool.query('SELECT id, name, date FROM schedules WHERE pet_id = $1 ORDER BY date ASC', [pet.id]);
 
       const dewormingInternal = dewormings.filter(d => d.type === 'internal');
       const dewormingExternal = dewormings.filter(d => d.type === 'external');
@@ -26,6 +27,8 @@ module.exports = {
         vaccines: vaccines || [],
         dewormingInternal,
         dewormingExternal
+        ,
+        schedules: schedules || []
       };
     }));
 
