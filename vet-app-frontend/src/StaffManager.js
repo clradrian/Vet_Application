@@ -438,25 +438,51 @@ import React, { useEffect, useState } from 'react';
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="subtitle2" color="primary">Istoric vaccinuri</Typography>
                     {Array.isArray(selectedPet.vaccines) && selectedPet.vaccines.length > 0 ? (
-                      <List dense>
-                        {selectedPet.vaccines.map((v, idx) => (
-                          <ListItem key={idx}>
-                            <ListItemText primary={v.name} secondary={v.date ? `Data: ${v.date}` : null} />
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : <Typography color="text.secondary">Nu există vaccinuri salvate.</Typography>}
+                        <List dense>
+                          {selectedPet.vaccines.map((v, idx) => {
+                            const exp = v.expiryDate ? new Date(v.expiryDate) : null;
+                            const now = new Date();
+                            const daysLeft = exp ? Math.ceil((exp - now) / (1000 * 60 * 60 * 24)) : null;
+                            const soon = daysLeft !== null && daysLeft <= 30 && daysLeft >= 0;
+                            const expired = daysLeft !== null && daysLeft < 0;
+                            return (
+                              <ListItem key={idx} sx={{ alignItems: 'center' }}>
+                                <ListItemText primary={v.name} secondary={v.date ? `Data: ${v.date}` : null} />
+                                {v.expiryDate && (
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                    <Typography variant="caption">Expiră: {v.expiryDate}</Typography>
+                                    {expired ? <Typography variant="caption" color="error">(expirat)</Typography> : soon ? <Typography variant="caption" color="warning.main">({daysLeft} zile)</Typography> : null}
+                                  </Box>
+                                )}
+                              </ListItem>
+                            );
+                          })}
+                        </List>
+                      ) : <Typography color="text.secondary">Nu există vaccinuri salvate.</Typography>}
                   </Box>
                   {/* Istoric deparazitări interne */}
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="subtitle2" color="primary">Istoric deparazitări interne</Typography>
                     {Array.isArray(selectedPet.dewormingInternal) && selectedPet.dewormingInternal.length > 0 ? (
                       <List dense>
-                        {selectedPet.dewormingInternal.map((d, idx) => (
-                          <ListItem key={idx}>
-                            <ListItemText primary={d.name} secondary={d.date ? `Data: ${d.date}` : null} />
-                          </ListItem>
-                        ))}
+                        {selectedPet.dewormingInternal.map((d, idx) => {
+                          const exp = d.expiryDate ? new Date(d.expiryDate) : null;
+                          const now = new Date();
+                          const daysLeft = exp ? Math.ceil((exp - now) / (1000 * 60 * 60 * 24)) : null;
+                          const soon = daysLeft !== null && daysLeft <= 30 && daysLeft >= 0;
+                          const expired = daysLeft !== null && daysLeft < 0;
+                          return (
+                            <ListItem key={idx} sx={{ alignItems: 'center' }}>
+                              <ListItemText primary={d.name} secondary={d.date ? `Data: ${d.date}` : null} />
+                              {d.expiryDate && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                  <Typography variant="caption">Expiră: {d.expiryDate}</Typography>
+                                  {expired ? <Typography variant="caption" color="error">(expirat)</Typography> : soon ? <Typography variant="caption" color="warning.main">({daysLeft} zile)</Typography> : null}
+                                </Box>
+                              )}
+                            </ListItem>
+                          );
+                        })}
                       </List>
                     ) : <Typography color="text.secondary">Nu există deparazitări interne salvate.</Typography>}
                   </Box>
@@ -465,11 +491,24 @@ import React, { useEffect, useState } from 'react';
                     <Typography variant="subtitle2" color="primary">Istoric deparazitări externe</Typography>
                     {Array.isArray(selectedPet.dewormingExternal) && selectedPet.dewormingExternal.length > 0 ? (
                       <List dense>
-                        {selectedPet.dewormingExternal.map((d, idx) => (
-                          <ListItem key={idx}>
-                            <ListItemText primary={d.name} secondary={d.date ? `Data: ${d.date}` : null} />
-                          </ListItem>
-                        ))}
+                        {selectedPet.dewormingExternal.map((d, idx) => {
+                          const exp = d.expiryDate ? new Date(d.expiryDate) : null;
+                          const now = new Date();
+                          const daysLeft = exp ? Math.ceil((exp - now) / (1000 * 60 * 60 * 24)) : null;
+                          const soon = daysLeft !== null && daysLeft <= 30 && daysLeft >= 0;
+                          const expired = daysLeft !== null && daysLeft < 0;
+                          return (
+                            <ListItem key={idx} sx={{ alignItems: 'center' }}>
+                              <ListItemText primary={d.name} secondary={d.date ? `Data: ${d.date}` : null} />
+                              {d.expiryDate && (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                  <Typography variant="caption">Expiră: {d.expiryDate}</Typography>
+                                  {expired ? <Typography variant="caption" color="error">(expirat)</Typography> : soon ? <Typography variant="caption" color="warning.main">({daysLeft} zile)</Typography> : null}
+                                </Box>
+                              )}
+                            </ListItem>
+                          );
+                        })}
                       </List>
                     ) : <Typography color="text.secondary">Nu există deparazitări externe salvate.</Typography>}
                   </Box>

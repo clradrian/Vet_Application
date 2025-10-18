@@ -10,8 +10,26 @@ module.exports = {
     return rows[0];
   },
   async getPetsByOwner(owner_id) {
-    const { rows } = await pool.query('SELECT * FROM pets WHERE owner_id = $1', [owner_id]);
-    return rows;
+    const { rows: pets } = await pool.query('SELECT * FROM pets WHERE owner_id = $1', [owner_id]);
+    if (!pets || pets.length === 0) return [];
+
+    // For each pet, fetch vaccines and dewormings and attach them
+    const petsWithDetails = await Promise.all(pets.map(async (pet) => {
+      const { rows: vaccines } = await pool.query('SELECT id, name, date, expiryDate FROM vaccines WHERE pet_id = $1 ORDER BY date DESC', [pet.id]);
+      const { rows: dewormings } = await pool.query('SELECT id, type, name, date, expiryDate FROM dewormings WHERE pet_id = $1 ORDER BY date DESC', [pet.id]);
+
+      const dewormingInternal = dewormings.filter(d => d.type === 'internal');
+      const dewormingExternal = dewormings.filter(d => d.type === 'external');
+
+      return {
+        ...pet,
+        vaccines: vaccines || [],
+        dewormingInternal,
+        dewormingExternal
+      };
+    }));
+
+    return petsWithDetails;
   },
   async deletePet(id) {
     await pool.query('DELETE FROM pets WHERE id = $1', [id]);

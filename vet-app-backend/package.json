@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-     "test": "echo \"Error: no test specified\" && exit 1",
-     "start": "node src/index.js"
+  "test": "node tests/test_petModel.js",
+  "migrate": "node src/migrate.js",
+  "start": "node src/index.js"
   },
   "keywords": [],
   "author": "",

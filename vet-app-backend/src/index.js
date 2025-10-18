@@ -174,6 +174,17 @@ app.post('/api/vaccines', async (req, res) => {
     res.status(500).json({ error: 'DB error', details: err.message });
   }
 });
+// Get vaccines for a pet
+app.get('/api/pets/:pet_id/vaccines', async (req, res) => {
+  const pet_id = parseInt(req.params.pet_id);
+  if (!pet_id) return res.status(400).json({ error: 'Pet ID required.' });
+  try {
+    const { rows } = await require('./db').query('SELECT id, name, date, expiryDate FROM vaccines WHERE pet_id = $1 ORDER BY date DESC', [pet_id]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.message });
+  }
+});
 // Update vaccine
 app.patch('/api/vaccines/:id', async (req, res) => {
   const id = parseInt(req.params.id);
@@ -198,6 +209,17 @@ app.post('/api/dewormings', async (req, res) => {
       [pet_id, type, name, date, expiryDate]
     );
     res.status(201).json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error', details: err.message });
+  }
+});
+// Get dewormings for a pet
+app.get('/api/pets/:pet_id/dewormings', async (req, res) => {
+  const pet_id = parseInt(req.params.pet_id);
+  if (!pet_id) return res.status(400).json({ error: 'Pet ID required.' });
+  try {
+    const { rows } = await require('./db').query('SELECT id, type, name, date, expiryDate FROM dewormings WHERE pet_id = $1 ORDER BY date DESC', [pet_id]);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'DB error', details: err.message });
   }
