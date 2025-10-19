@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-  import { Card, CardContent, Typography, TextField, Button, Box, List, ListItem, ListItemText, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+  import { Card, CardContent, Typography, TextField, Button, Box, List, ListItem, ListItemText, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Pagination } from '@mui/material';
   import { loadHistoryState, saveHistoryState } from './utils/historyState';
   import { sortByAdminDate } from './utils/sortByAdminDate';
 
@@ -102,6 +102,54 @@ import React, { useEffect, useState } from 'react';
   const [petForm, setPetForm] = useState({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
   const [successOwner, setSuccessOwner] = useState('');
   const [expandedOwnerId, setExpandedOwnerId] = useState(null);
+
+  // State pentru paginare
+  const [ownersPage, setOwnersPage] = useState(1);
+  const [staffPage, setStaffPage] = useState(1);
+  const [ownersPageInput, setOwnersPageInput] = useState('1');
+  const [staffPageInput, setStaffPageInput] = useState('1');
+  const ITEMS_PER_PAGE = 10;
+
+  // Funcții pentru navigarea directă la pagină
+  const handleOwnersPageInputChange = (e) => {
+    const value = e.target.value;
+    setOwnersPageInput(value);
+  };
+
+  const handleOwnersPageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(ownersPageInput);
+    if (pageNum >= 1 && pageNum <= ownersTotalPages) {
+      setOwnersPage(pageNum);
+      setExpandedOwnerId(null); // Închide detaliile când schimbăm pagina
+    } else {
+      setOwnersPageInput(ownersPage.toString()); // Reset la pagina curentă dacă input invalid
+    }
+  };
+
+  const handleStaffPageInputChange = (e) => {
+    const value = e.target.value;
+    setStaffPageInput(value);
+  };
+
+  const handleStaffPageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(staffPageInput);
+    if (pageNum >= 1 && pageNum <= staffTotalPages) {
+      setStaffPage(pageNum);
+    } else {
+      setStaffPageInput(staffPage.toString()); // Reset la pagina curentă dacă input invalid
+    }
+  };
+
+  // Sincronizare input cu pagina curentă
+  useEffect(() => {
+    setOwnersPageInput(ownersPage.toString());
+  }, [ownersPage]);
+
+  useEffect(() => {
+    setStaffPageInput(staffPage.toString());
+  }, [staffPage]);
 
   const fetchOwnersAndPets = async () => {
     try {
@@ -252,8 +300,29 @@ import React, { useEffect, useState } from 'react';
     }
   };
 
-  const staffList = users.filter(u => u.role !== 'pet_owner');
-  const ownerList = users.filter(u => u.role === 'pet_owner');
+  // Sortare alfabetică și paginare pentru personal
+  const allStaff = users.filter(u => u.role !== 'pet_owner').sort((a, b) => {
+    const nameA = a.fullName || a.username || '';
+    const nameB = b.fullName || b.username || '';
+    return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
+  });
+  
+  const staffTotalPages = Math.max(1, Math.ceil(allStaff.length / ITEMS_PER_PAGE));
+  const staffStartIndex = (staffPage - 1) * ITEMS_PER_PAGE;
+  const staffEndIndex = staffStartIndex + ITEMS_PER_PAGE;
+  const staffList = allStaff.slice(staffStartIndex, staffEndIndex);
+
+  // Sortare alfabetică și paginare pentru proprietari
+  const allOwners = users.filter(u => u.role === 'pet_owner').sort((a, b) => {
+    const nameA = a.fullName || a.username || '';
+    const nameB = b.fullName || b.username || '';
+    return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
+  });
+  
+  const ownersTotalPages = Math.max(1, Math.ceil(allOwners.length / ITEMS_PER_PAGE));
+  const ownersStartIndex = (ownersPage - 1) * ITEMS_PER_PAGE;
+  const ownersEndIndex = ownersStartIndex + ITEMS_PER_PAGE;
+  const ownerList = allOwners.slice(ownersStartIndex, ownersEndIndex);
 
   if (proprietariOnly) {
     // Administrare proprietari
@@ -595,6 +664,38 @@ import React, { useEffect, useState } from 'react';
                 </ListItem>
               ))}
             </List>
+            
+            {/* Paginare proprietari */}
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Pagina {ownersPage} din {ownersTotalPages} ({allOwners.length} proprietari total)
+                </Typography>
+                  <Box component="form" onSubmit={handleOwnersPageInputSubmit} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2">Mergi la pagina:</Typography>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={ownersPageInput}
+                      onChange={handleOwnersPageInputChange}
+                      inputProps={{ min: 1, max: ownersTotalPages, style: { width: '60px', textAlign: 'center' } }}
+                    />
+                    <Button type="submit" size="small" variant="outlined">Go</Button>
+                  </Box>
+                </Box>
+                <Pagination
+                  count={ownersTotalPages}
+                  page={ownersPage}
+                  onChange={(event, value) => {
+                    setOwnersPage(value);
+                    setExpandedOwnerId(null);
+                  }}
+                  color="primary"
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+            
             {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
           </CardContent>
         </Card>
@@ -1165,6 +1266,35 @@ import React, { useEffect, useState } from 'react';
                 </ListItem>
               ))}
             </List>
+            
+            {/* Paginare personal */}
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Pagina {staffPage} din {staffTotalPages} ({allStaff.length} membri personal total)
+                </Typography>
+                  <Box component="form" onSubmit={handleStaffPageInputSubmit} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2">Mergi la pagina:</Typography>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={staffPageInput}
+                      onChange={handleStaffPageInputChange}
+                      inputProps={{ min: 1, max: staffTotalPages, style: { width: '60px', textAlign: 'center' } }}
+                    />
+                    <Button type="submit" size="small" variant="outlined">Go</Button>
+                  </Box>
+                </Box>
+                <Pagination
+                  count={staffTotalPages}
+                  page={staffPage}
+                  onChange={(event, value) => setStaffPage(value)}
+                  color="primary"
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+            
             {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
           </CardContent>
         </Card>
