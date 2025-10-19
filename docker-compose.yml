@@ -1,0 +1,164 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: vet-app-postgres
+    environment:
+      POSTGRES_DB: vet_app_db
+      POSTGRES_USER: ${DB_USER:-vet_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-vet_password}
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations
+    networks:
+      - vet-app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-vet_user} -d vet_app_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # User Service
+  user-service:
+    build: 
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: vet-app-user-service
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: vet_app_db
+      DB_USER: ${DB_USER:-vet_user}
+      DB_PASSWORD: ${DB_PASSWORD:-vet_password}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vet-app-network
+    restart: unless-stopped
+    volumes:
+      - ./user-service/src:/app/src:ro
+
+  # Pet Service
+  pet-service:
+    build: 
+      context: ./pet-service
+      dockerfile: Dockerfile
+    container_name: vet-app-pet-service
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: vet_app_db
+      DB_USER: ${DB_USER:-vet_user}
+      DB_PASSWORD: ${DB_PASSWORD:-vet_password}
+      USER_SERVICE_URL: http://user-service:3001
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    networks:
+      - vet-app-network
+    restart: unless-stopped
+    volumes:
+      - ./pet-service/src:/app/src:ro
+
+  # Notification Service
+  notification-service:
+    build: 
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: vet-app-notification-service
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: vet_app_db
+      DB_USER: ${DB_USER:-vet_user}
+      DB_PASSWORD: ${DB_PASSWORD:-vet_password}
+      PET_SERVICE_URL: http://pet-service:3002
+      USER_SERVICE_URL: http://user-service:3001
+      # Email configuration - set these in .env file
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_SECURE: ${EMAIL_SECURE:-false}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
+      EMAIL_FROM: ${EMAIL_FROM}
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      pet-service:
+        condition: service_started
+    networks:
+      - vet-app-network
+    restart: unless-stopped
+    volumes:
+      - ./notification-service/src:/app/src:ro
+
+  # Frontend Service
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vet-app-frontend
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - user-service
+      - pet-service
+      - notification-service
+    networks:
+      - vet-app-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: vet-app-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - user-service
+      - pet-service
+      - notification-service
+    networks:
+      - vet-app-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  vet-app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

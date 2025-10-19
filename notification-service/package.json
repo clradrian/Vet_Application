@@ -1,0 +1,27 @@
+{
+  "name": "notification-service",
+  "version": "1.0.0",
+  "description": "Email notifications and reminders service",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "axios": "^1.6.0",
+    "nodemailer": "^7.0.9",
+    "node-cron": "^4.2.1",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.7.0"
+  },
+  "keywords": ["microservice", "notifications", "email", "veterinary"],
+  "author": "",
+  "license": "ISC"
+}
