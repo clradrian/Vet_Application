@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: vet_app_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install backend deps
+        working-directory: ./vet-app-backend
+        run: npm install
+
+      - name: Wait for Postgres
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done
+
+      - name: Run backend migrations
+        working-directory: ./vet-app-backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/vet_app_db
+        run: npm run migrate
+
+      - name: Run backend tests
+        working-directory: ./vet-app-backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/vet_app_db
+        run: npm test
+
+      - name: Install frontend deps
+        working-directory: ./vet-app-frontend
+        run: npm install
+
+      - name: Run frontend tests
+        working-directory: ./vet-app-frontend
+        run: npm test -- --watchAll=false

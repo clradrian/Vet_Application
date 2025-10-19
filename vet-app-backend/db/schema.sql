@@ -26,19 +26,27 @@ CREATE TABLE IF NOT EXISTS pets (
   photo VARCHAR(255)
 );
 
--- Tabel vaccinuri
 CREATE TABLE IF NOT EXISTS vaccines (
   id SERIAL PRIMARY KEY,
   pet_id INTEGER REFERENCES pets(id) ON DELETE CASCADE,
   name VARCHAR(100),
-  date DATE
+  date DATE,
+  expiryDate DATE
 );
 
--- Tabel deparazitari
 CREATE TABLE IF NOT EXISTS dewormings (
   id SERIAL PRIMARY KEY,
   pet_id INTEGER REFERENCES pets(id) ON DELETE CASCADE,
   type VARCHAR(20), -- 'internal' sau 'external'
   name VARCHAR(100),
-  date DATE
+  date DATE,
+  expiryDate DATE
+);
+
+-- Tabel programari
+CREATE TABLE IF NOT EXISTS schedules (
+  id SERIAL PRIMARY KEY,
+  pet_id INTEGER REFERENCES pets(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  date DATE NOT NULL
 );
