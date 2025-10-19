@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
   import { Card, CardContent, Typography, TextField, Button, Box, List, ListItem, ListItemText, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
   import { loadHistoryState, saveHistoryState } from './utils/historyState';
+  import { sortByAdminDate } from './utils/sortByAdminDate';
 
   function StaffManager({ token, proprietariOnly }) {
   // State pentru afisare istoric deparazitare/vaccinuri
   const [showInternalHistory, setShowInternalHistory] = useState(false);
     const [showExternalHistory, setShowExternalHistory] = useState(false);
     const [showVaccinesHistory, setShowVaccinesHistory] = useState(false);
+  // Toggle showing expired administrations per-section
+  const [showExpiredVaccines, setShowExpiredVaccines] = useState(false);
+  const [showExpiredInternal, setShowExpiredInternal] = useState(false);
+  const [showExpiredExternal, setShowExpiredExternal] = useState(false);
   // State pentru editare detalii avansate
   const [editAdvancedMode, setEditAdvancedMode] = useState(false);
   const [editAdvancedForm, setEditAdvancedForm] = useState(null);
@@ -49,6 +54,7 @@ import React, { useEffect, useState } from 'react';
     const ms = to.getTime() - from.getTime();
     return Math.ceil(ms / (1000 * 60 * 60 * 24));
   };
+  
   const renderExpiryInfo = (adminDateStr, expiryDateStr) => {
     const expiry = parseDate(expiryDateStr);
     const admin = parseDate(adminDateStr);
@@ -548,38 +554,75 @@ import React, { useEffect, useState } from 'react';
                   </Box>
                   {showVaccinesHistory && (
                     (Array.isArray(selectedPet.vaccines) && selectedPet.vaccines.length > 0) ? (
-                      <List dense>
-                        {selectedPet.vaccines
-                          .slice()
-                          .sort((a, b) => {
-                            const da = parseDate(a.date);
-                            const db = parseDate(b.date);
-                            if (!da && !db) return 0;
-                            if (!da) return 1;
-                            if (!db) return -1;
-                            return db - da; // most recent first
-                          })
-                          .map((v, idx) => {
-                            const meta = getExpiryMeta(v.date, v.expiryDate);
-                            return (
-                              <ListItem key={v.id || `vacc-${idx}`} sx={{ alignItems: 'center', borderLeft: meta.expired ? '4px solid rgba(211,47,47,0.6)' : undefined, pl: meta.expired ? 2 : undefined }}>
-                                <ListItemText
-                                  primary={v.name}
-                                  secondary={(
-                                    <>
-                                      {v.date || v.expiryDate ? (
-                                        <div>{`${v.date ? `Administrare: ${formatDateShort(v.date)}` : ''}${v.expiryDate ? (v.date ? ' — ' : '') + `Expirare: ${formatDateShort(v.expiryDate)}` : ''}`}</div>
-                                      ) : null}
-                                      {v.expiryDate && (
-                                        <div>{renderExpiryInfo(v.date, v.expiryDate)}</div>
+                      (() => {
+                        const sorted = sortByAdminDate(selectedPet.vaccines);
+                        const active = sorted.filter(v => !getExpiryMeta(v.date, v.expiryDate).expired);
+                        const expired = sorted.filter(v => getExpiryMeta(v.date, v.expiryDate).expired);
+                        return (
+                          <Box>
+                            <List dense>
+                              {active.map((v, idx) => {
+                                const meta = getExpiryMeta(v.date, v.expiryDate);
+                                return (
+                                  <ListItem key={v.id || `vacc-${idx}`} sx={{ alignItems: 'center' }}>
+                                    <ListItemText
+                                      primary={v.name}
+                                      secondary={(
+                                        <>
+                                          {v.date || v.expiryDate ? (
+                                            <div>{`${v.date ? `Administrare: ${formatDateShort(v.date)}` : ''}${v.expiryDate ? (v.date ? ' — ' : '') + `Expirare: ${formatDateShort(v.expiryDate)}` : ''}`}</div>
+                                          ) : null}
+                                          {v.expiryDate && (() => {
+                                            const meta = getExpiryMeta(v.date, v.expiryDate);
+                                            return (
+                                              <div>
+                                                <Typography variant="caption" color="text.secondary">valabilitate: {meta.totalValidity ?? 'N/A'} zile</Typography>
+                                                <Typography variant="caption" color={meta.expired ? 'error' : 'text.secondary'} sx={{ ml: 1 }}>{meta.expired ? ` — Expirat (${formatDateShort(v.expiryDate)})` : ` — Expiră în ${meta.daysLeft} zile`}</Typography>
+                                              </div>
+                                            );
+                                          })()}
+                                        </>
                                       )}
-                                    </>
-                                  )}
-                                />
-                              </ListItem>
-                            );
-                          })}
-                      </List>
+                                    />
+                                  </ListItem>
+                                );
+                              })}
+                            </List>
+                            {expired.length > 0 && (
+                              <Box sx={{ mt: 1 }}>
+                                <Button size="small" onClick={() => setShowExpiredVaccines(s => !s)}>{showExpiredVaccines ? 'Ascunde administrările expirate' : 'Arată administrările expirate'}</Button>
+                                {showExpiredVaccines && (
+                                  <List dense sx={{ mt: 1 }}>
+                                    {expired.map((v, idx) => {
+                                      const meta = getExpiryMeta(v.date, v.expiryDate);
+                                      return (
+                                        <ListItem key={v.id || `vacc-exp-${idx}`} sx={{ alignItems: 'center', borderLeft: '4px solid rgba(211,47,47,0.6)', pl: 2 }}>
+                                          <ListItemText
+                                            primary={v.name}
+                                            secondary={(
+                                              <>
+                                                {v.date || v.expiryDate ? (
+                                                  <div>{`${v.date ? `Administrare: ${formatDateShort(v.date)}` : ''}${v.expiryDate ? (v.date ? ' — ' : '') + `Expirare: ${formatDateShort(v.expiryDate)}` : ''}`}</div>
+                                                ) : null}
+                                                {v.expiryDate && (
+                                                  <div>
+                                                    <Typography variant="caption" color="error">valabilitate: {meta.totalValidity ?? 'N/A'} zile</Typography>
+                                                    <Typography variant="caption" color="error" sx={{ ml: 1 }}>{` — Expirat (${formatDateShort(v.expiryDate)})`}</Typography>
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
+                                          />
+                                        </ListItem>
+                                      );
+                                    })}
+                                  </List>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
+                        );
+                      })()
                     ) : <Typography color="text.secondary">Nu există vaccinuri salvate.</Typography>
                   )}
                   {/* Istoric deparazitări interne */}
@@ -597,38 +640,75 @@ import React, { useEffect, useState } from 'react';
                   </Box>
                   {showInternalHistory && (
                     (Array.isArray(selectedPet.dewormingInternal) && selectedPet.dewormingInternal.length > 0) ? (
-                      <List dense>
-                        {selectedPet.dewormingInternal
-                          .slice()
-                          .sort((a, b) => {
-                            const da = parseDate(a.date);
-                            const db = parseDate(b.date);
-                            if (!da && !db) return 0;
-                            if (!da) return 1;
-                            if (!db) return -1;
-                            return db - da;
-                          })
-                          .map((d, idx) => {
-                            const meta = getExpiryMeta(d.date, d.expiryDate);
-                            return (
-                              <ListItem key={d.id || `dewi-${idx}`} sx={{ alignItems: 'center', borderLeft: meta.expired ? '4px solid rgba(211,47,47,0.6)' : undefined, pl: meta.expired ? 2 : undefined }}>
-                                <ListItemText
-                                  primary={d.name}
-                                  secondary={(
-                                    <>
-                                      {d.date || d.expiryDate ? (
-                                        <div>{`${d.date ? `Administrare: ${formatDateShort(d.date)}` : ''}${d.expiryDate ? (d.date ? ' — ' : '') + `Expirare: ${formatDateShort(d.expiryDate)}` : ''}`}</div>
-                                      ) : null}
-                                      {d.expiryDate && (
-                                        <div>{renderExpiryInfo(d.date, d.expiryDate)}</div>
+                      (() => {
+                        const sorted = sortByAdminDate(selectedPet.dewormingInternal);
+                        const active = sorted.filter(d => !getExpiryMeta(d.date, d.expiryDate).expired);
+                        const expired = sorted.filter(d => getExpiryMeta(d.date, d.expiryDate).expired);
+                        return (
+                          <Box>
+                            <List dense>
+                              {active.map((d, idx) => {
+                                const meta = getExpiryMeta(d.date, d.expiryDate);
+                                return (
+                                  <ListItem key={d.id || `dewi-${idx}`} sx={{ alignItems: 'center' }}>
+                                    <ListItemText
+                                      primary={d.name}
+                                      secondary={(
+                                        <>
+                                          {d.date || d.expiryDate ? (
+                                            <div>{`${d.date ? `Administrare: ${formatDateShort(d.date)}` : ''}${d.expiryDate ? (d.date ? ' — ' : '') + `Expirare: ${formatDateShort(d.expiryDate)}` : ''}`}</div>
+                                          ) : null}
+                                          {d.expiryDate && (() => {
+                                            const meta = getExpiryMeta(d.date, d.expiryDate);
+                                            return (
+                                              <div>
+                                                <Typography variant="caption" color="text.secondary">valabilitate: {meta.totalValidity ?? 'N/A'} zile</Typography>
+                                                <Typography variant="caption" color={meta.expired ? 'error' : 'text.secondary'} sx={{ ml: 1 }}>{meta.expired ? ` — Expirat (${formatDateShort(d.expiryDate)})` : ` — Expiră în ${meta.daysLeft} zile`}</Typography>
+                                              </div>
+                                            );
+                                          })()}
+                                        </>
                                       )}
-                                    </>
-                                  )}
-                                />
-                              </ListItem>
-                            );
-                          })}
-                      </List>
+                                    />
+                                  </ListItem>
+                                );
+                              })}
+                            </List>
+                            {expired.length > 0 && (
+                              <Box sx={{ mt: 1 }}>
+                                <Button size="small" onClick={() => setShowExpiredInternal(s => !s)}>{showExpiredInternal ? 'Ascunde administrările expirate' : 'Arată administrările expirate'}</Button>
+                                {showExpiredInternal && (
+                                  <List dense sx={{ mt: 1 }}>
+                                    {expired.map((d, idx) => {
+                                      const meta = getExpiryMeta(d.date, d.expiryDate);
+                                      return (
+                                        <ListItem key={d.id || `dewi-exp-${idx}`} sx={{ alignItems: 'center', borderLeft: '4px solid rgba(211,47,47,0.6)', pl: 2 }}>
+                                          <ListItemText
+                                            primary={d.name}
+                                            secondary={(
+                                              <>
+                                                {d.date || d.expiryDate ? (
+                                                  <div>{`${d.date ? `Administrare: ${formatDateShort(d.date)}` : ''}${d.expiryDate ? (d.date ? ' — ' : '') + `Expirare: ${formatDateShort(d.expiryDate)}` : ''}`}</div>
+                                                ) : null}
+                                                {d.expiryDate && (
+                                                  <div>
+                                                    <Typography variant="caption" color="error">valabilitate: {meta.totalValidity ?? 'N/A'} zile</Typography>
+                                                    <Typography variant="caption" color="error" sx={{ ml: 1 }}>{` — Expirat (${formatDateShort(d.expiryDate)})`}</Typography>
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
+                                          />
+                                        </ListItem>
+                                      );
+                                    })}
+                                  </List>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
+                        );
+                      })()
                     ) : <Typography color="text.secondary">Nu există deparazitări interne salvate.</Typography>
                   )}
                   {/* Istoric deparazitări externe */}
@@ -646,38 +726,75 @@ import React, { useEffect, useState } from 'react';
                   </Box>
                   {showExternalHistory && (
                     (Array.isArray(selectedPet.dewormingExternal) && selectedPet.dewormingExternal.length > 0) ? (
-                      <List dense>
-                        {selectedPet.dewormingExternal
-                          .slice()
-                          .sort((a, b) => {
-                            const da = parseDate(a.date);
-                            const db = parseDate(b.date);
-                            if (!da && !db) return 0;
-                            if (!da) return 1;
-                            if (!db) return -1;
-                            return db - da;
-                          })
-                          .map((d, idx) => {
-                            const meta = getExpiryMeta(d.date, d.expiryDate);
-                            return (
-                              <ListItem key={d.id || `dewe-${idx}`} sx={{ alignItems: 'center', borderLeft: meta.expired ? '4px solid rgba(211,47,47,0.6)' : undefined, pl: meta.expired ? 2 : undefined }}>
-                                <ListItemText
-                                  primary={d.name}
-                                  secondary={(
-                                    <>
-                                      {d.date || d.expiryDate ? (
-                                        <div>{`${d.date ? `Administrare: ${formatDateShort(d.date)}` : ''}${d.expiryDate ? (d.date ? ' — ' : '') + `Expirare: ${formatDateShort(d.expiryDate)}` : ''}`}</div>
-                                      ) : null}
-                                      {d.expiryDate && (
-                                        <div>{renderExpiryInfo(d.date, d.expiryDate)}</div>
+                      (() => {
+                        const sorted = sortByAdminDate(selectedPet.dewormingExternal);
+                        const active = sorted.filter(d => !getExpiryMeta(d.date, d.expiryDate).expired);
+                        const expired = sorted.filter(d => getExpiryMeta(d.date, d.expiryDate).expired);
+                        return (
+                          <Box>
+                            <List dense>
+                              {active.map((d, idx) => {
+                                const meta = getExpiryMeta(d.date, d.expiryDate);
+                                return (
+                                  <ListItem key={d.id || `dewe-${idx}`} sx={{ alignItems: 'center' }}>
+                                    <ListItemText
+                                      primary={d.name}
+                                      secondary={(
+                                        <>
+                                          {d.date || d.expiryDate ? (
+                                            <div>{`${d.date ? `Administrare: ${formatDateShort(d.date)}` : ''}${d.expiryDate ? (d.date ? ' — ' : '') + `Expirare: ${formatDateShort(d.expiryDate)}` : ''}`}</div>
+                                          ) : null}
+                                          {d.expiryDate && (() => {
+                                            const meta = getExpiryMeta(d.date, d.expiryDate);
+                                            return (
+                                              <div>
+                                                <Typography variant="caption" color="text.secondary">valabilitate: {meta.totalValidity ?? 'N/A'} zile</Typography>
+                                                <Typography variant="caption" color={meta.expired ? 'error' : 'text.secondary'} sx={{ ml: 1 }}>{meta.expired ? ` — Expirat (${formatDateShort(d.expiryDate)})` : ` — Expiră în ${meta.daysLeft} zile`}</Typography>
+                                              </div>
+                                            );
+                                          })()}
+                                        </>
                                       )}
-                                    </>
-                                  )}
-                                />
-                              </ListItem>
-                            );
-                          })}
-                      </List>
+                                    />
+                                  </ListItem>
+                                );
+                              })}
+                            </List>
+                            {expired.length > 0 && (
+                              <Box sx={{ mt: 1 }}>
+                                <Button size="small" onClick={() => setShowExpiredExternal(s => !s)}>{showExpiredExternal ? 'Ascunde administrările expirate' : 'Arată administrările expirate'}</Button>
+                                {showExpiredExternal && (
+                                  <List dense sx={{ mt: 1 }}>
+                                    {expired.map((d, idx) => {
+                                      const meta = getExpiryMeta(d.date, d.expiryDate);
+                                      return (
+                                        <ListItem key={d.id || `dewe-exp-${idx}`} sx={{ alignItems: 'center', borderLeft: '4px solid rgba(211,47,47,0.6)', pl: 2 }}>
+                                          <ListItemText
+                                            primary={d.name}
+                                            secondary={(
+                                              <>
+                                                {d.date || d.expiryDate ? (
+                                                  <div>{`${d.date ? `Administrare: ${formatDateShort(d.date)}` : ''}${d.expiryDate ? (d.date ? ' — ' : '') + `Expirare: ${formatDateShort(d.expiryDate)}` : ''}`}</div>
+                                                ) : null}
+                                                {d.expiryDate && (
+                                                  <div>
+                                                    <Typography variant="caption" color="error">valabilitate: {meta.totalValidity ?? 'N/A'} zile</Typography>
+                                                    <Typography variant="caption" color="error" sx={{ ml: 1 }}>{` — Expirat (${formatDateShort(d.expiryDate)})`}</Typography>
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
+                                          />
+                                        </ListItem>
+                                      );
+                                    })}
+                                  </List>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
+                        );
+                      })()
                     ) : <Typography color="text.secondary">Nu există deparazitări externe salvate.</Typography>
                   )}
                 </Box>
@@ -695,14 +812,7 @@ import React, { useEffect, useState } from 'react';
                   <TextField label="Data sterilizare" type="date" InputLabelProps={{ shrink: true }} value={editAdvancedForm.sterilizationDate || ''} onChange={e => setEditAdvancedForm(f => ({ ...f, sterilizationDate: e.target.value }))} fullWidth />
                   {/* Vaccines */}
                   <Typography variant="subtitle2" color="primary">Vaccinuri</Typography>
-                  {(editAdvancedForm.vaccines || []).slice().sort((a, b) => {
-                    const da = parseDate(a.date);
-                    const db = parseDate(b.date);
-                    if (!da && !db) return 0;
-                    if (!da) return 1;
-                    if (!db) return -1;
-                    return db - da;
-                  }).map((v, idx) => {
+                  {sortByAdminDate(editAdvancedForm.vaccines).map((v, idx) => {
                     const isEditing = editingItem && editingItem.section === 'vaccines' && editingItem.idx === idx;
                     return (
                       <Box key={v.id || `edit-vacc-${idx}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
@@ -744,14 +854,7 @@ import React, { useEffect, useState } from 'react';
                   <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, vaccines: [...(f.vaccines || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă vaccin</Button>
                   {/* Deworming Internal */}
                   <Typography variant="subtitle2" color="primary">Deparazitări interne</Typography>
-                  {(editAdvancedForm.dewormingInternal || []).slice().sort((a, b) => {
-                    const da = parseDate(a.date);
-                    const db = parseDate(b.date);
-                    if (!da && !db) return 0;
-                    if (!da) return 1;
-                    if (!db) return -1;
-                    return db - da;
-                  }).map((d, idx) => {
+                  {sortByAdminDate(editAdvancedForm.dewormingInternal).map((d, idx) => {
                     const isEditing = editingItem && editingItem.section === 'dewormingInternal' && editingItem.idx === idx;
                     return (
                       <Box key={d.id || `edit-dewi-${idx}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
@@ -790,14 +893,7 @@ import React, { useEffect, useState } from 'react';
                   <Button variant="outlined" onClick={() => setEditAdvancedForm(f => ({ ...f, dewormingInternal: [...(f.dewormingInternal || []), { name: '', date: '', expiryDate: '' }] }))}>Adaugă deparazitare internă</Button>
                   {/* Deworming External */}
                   <Typography variant="subtitle2" color="primary">Deparazitări externe</Typography>
-                  {(editAdvancedForm.dewormingExternal || []).slice().sort((a, b) => {
-                    const da = parseDate(a.date);
-                    const db = parseDate(b.date);
-                    if (!da && !db) return 0;
-                    if (!da) return 1;
-                    if (!db) return -1;
-                    return db - da;
-                  }).map((d, idx) => {
+                  {sortByAdminDate(editAdvancedForm.dewormingExternal).map((d, idx) => {
                     const isEditing = editingItem && editingItem.section === 'dewormingExternal' && editingItem.idx === idx;
                     return (
                       <Box key={d.id || `edit-dewe-${idx}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
