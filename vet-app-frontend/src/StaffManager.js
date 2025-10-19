@@ -146,6 +146,35 @@ import React, { useEffect, useState } from 'react';
     fetchOwnersAndPets();
   }, [token]);
 
+  // Ștergere animal
+  const handleDeletePet = async (petId, petName) => {
+    if (!window.confirm(`Ești sigur că vrei să ștergi animalul "${petName}"? Această acțiune nu poate fi anulată.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:4000/api/pets/${petId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete pet');
+      }
+
+      // Refresh the list after deletion
+      await fetchOwnersAndPets();
+      setSuccessOwner('Animalul a fost șters cu succes!');
+      // Auto-hide success message after 2 seconds
+      setTimeout(() => setSuccessOwner(''), 2000);
+    } catch (err) {
+      setError(err.message || 'Eroare la ștergerea animalului');
+      // Auto-hide error message after 5 seconds
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
   // Adăugare/editare personal
   const handleAddStaff = async (e) => {
     e.preventDefault();
@@ -175,6 +204,8 @@ import React, { useEffect, useState } from 'react';
       }
     } catch (err) {
       setError(err.message);
+      // Auto-hide error message after 5 seconds
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -197,6 +228,8 @@ import React, { useEffect, useState } from 'react';
         setEditingOwner(null);
         setShowOwnerForm(false);
         setSuccessOwner('Datele proprietarului au fost salvate cu succes!');
+        // Auto-hide success message after 2 seconds
+        setTimeout(() => setSuccessOwner(''), 2000);
       } else {
         res = await fetch('http://localhost:4000/admin/staff', {
           method: 'POST',
@@ -209,9 +242,13 @@ import React, { useEffect, useState } from 'react';
         setEditingOwner(null);
         setShowOwnerForm(false);
         setSuccessOwner('Proprietarul a fost adăugat cu succes!');
+        // Auto-hide success message after 2 seconds
+        setTimeout(() => setSuccessOwner(''), 2000);
       }
     } catch (err) {
       setError(err.message);
+      // Auto-hide error message after 5 seconds
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -243,14 +280,13 @@ import React, { useEffect, useState } from 'react';
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button type="submit" variant="contained" color="primary">{editingOwner ? 'Salvează modificările' : 'Salvează'}</Button>
                     <Button variant="outlined" color="secondary" onClick={() => { setShowOwnerForm(false); setEditingOwner(null); }}>Anulează</Button>
-                    <Button variant="outlined" color="primary" onClick={() => setShowPetForm(true)}>Adaugă animal de companie</Button>
                   </Box>
                 </Box>
               )}
             </Box>
-            {showPetForm && (
+            {showPetForm && editingOwner && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                <Typography variant="subtitle1" color="primary">Date animal de companie</Typography>
+                <Typography variant="subtitle1" color="primary">Adaugă animal pentru: {editingOwner.fullName || editingOwner.username}</Typography>
                 <TextField label="Nume" variant="outlined" value={petForm.name} onChange={e => setPetForm(f => ({ ...f, name: e.target.value }))} fullWidth />
                 <TextField label="Specie" variant="outlined" value={petForm.species} onChange={e => setPetForm(f => ({ ...f, species: e.target.value }))} fullWidth />
                 <TextField label="Rasă" variant="outlined" value={petForm.breed} onChange={e => setPetForm(f => ({ ...f, breed: e.target.value }))} fullWidth />
@@ -367,7 +403,7 @@ import React, { useEffect, useState } from 'react';
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
-                              ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
+                              Authorization: `Bearer ${token}`
                             },
                             body: JSON.stringify(petPayload)
                           });
@@ -384,6 +420,8 @@ import React, { useEffect, useState } from 'react';
                               if (v.expiryDate && v.date && parseDate(v.expiryDate) && parseDate(v.date)) {
                                 if (parseDate(v.expiryDate) < parseDate(v.date)) {
                                   setError('Data de expirare nu poate fi înaintea datei de administrare pentru vaccinuri');
+                                  // Auto-hide error message after 5 seconds
+                                  setTimeout(() => setError(''), 5000);
                                   return;
                                 }
                               }
@@ -391,7 +429,7 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.vaccines.map(v =>
                               fetch('http://localhost:4000/api/vaccines', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...v, expiryDate: v.expiryDate ? v.expiryDate : null })
                               })
                             ));
@@ -402,6 +440,8 @@ import React, { useEffect, useState } from 'react';
                               if (d.expiryDate && d.date && parseDate(d.expiryDate) && parseDate(d.date)) {
                                 if (parseDate(d.expiryDate) < parseDate(d.date)) {
                                   setError('Data de expirare nu poate fi înaintea datei de administrare pentru deparazitări interne');
+                                  // Auto-hide error message after 5 seconds
+                                  setTimeout(() => setError(''), 5000);
                                   return;
                                 }
                               }
@@ -409,7 +449,7 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.dewormingInternal.map(d =>
                               fetch('http://localhost:4000/api/dewormings', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...d, type: 'internal', expiryDate: d.expiryDate ? d.expiryDate : null })
                               })
                             ));
@@ -420,6 +460,8 @@ import React, { useEffect, useState } from 'react';
                               if (d.expiryDate && d.date && parseDate(d.expiryDate) && parseDate(d.date)) {
                                 if (parseDate(d.expiryDate) < parseDate(d.date)) {
                                   setError('Data de expirare nu poate fi înaintea datei de administrare pentru deparazitări externe');
+                                  // Auto-hide error message after 5 seconds
+                                  setTimeout(() => setError(''), 5000);
                                   return;
                                 }
                               }
@@ -427,7 +469,7 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.dewormingExternal.map(d =>
                               fetch('http://localhost:4000/api/dewormings', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...d, type: 'external', expiryDate: d.expiryDate ? d.expiryDate : null })
                               })
                             ));
@@ -436,15 +478,24 @@ import React, { useEffect, useState } from 'react';
                           await fetchOwnersAndPets();
                         } catch (err) {
                           setError('Eroare la comunicarea cu backend-ul');
+                          // Auto-hide error message after 5 seconds
+                          setTimeout(() => setError(''), 5000);
                           console.error('Pet save fetch error:', err);
                           return;
                         }
                       }
                       setShowPetForm(false);
+                      setShowOwnerForm(false);
+                      setEditingOwner(null);
                       setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
                     }}
                   >Salvează animal</Button>
-                  <Button variant="outlined" color="secondary" onClick={() => setShowPetForm(false)}>Anulează</Button>
+                  <Button variant="outlined" color="secondary" onClick={() => {
+                    setShowPetForm(false);
+                    setShowOwnerForm(false);
+                    setEditingOwner(null);
+                    setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
+                  }}>Anulează</Button>
                 </Box>
               </Box>
             )}
@@ -472,12 +523,30 @@ import React, { useEffect, useState } from 'react';
                         secondary={o.email && <span><b>Email:</b> {o.email}</span>}
                       />
                     </Box>
-                    <Button size="small" variant="contained" sx={{ ml: 2 }} onClick={e => {
-                      e.stopPropagation();
-                      setExpandedOwnerId(expandedOwnerId === o.id ? null : o.id);
-                    }}>
-                      {expandedOwnerId === o.id ? 'Ascunde animalele de companie' : 'Afișează animalele de companie'}
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button size="small" variant="outlined" color="primary" sx={{ ml: 1 }} onClick={e => {
+                        e.stopPropagation();
+                        setShowOwnerForm(true);
+                        setEditingOwner(o);
+                        setOwnerForm({
+                          username: o.username,
+                          password: '',
+                          role: o.role,
+                          fullName: o.fullName || '',
+                          email: o.email || '',
+                          phone: o.phone || ''
+                        });
+                        setShowPetForm(true);
+                      }}>
+                        Adaugă animal
+                      </Button>
+                      <Button size="small" variant="contained" onClick={e => {
+                        e.stopPropagation();
+                        setExpandedOwnerId(expandedOwnerId === o.id ? null : o.id);
+                      }}>
+                        {expandedOwnerId === o.id ? 'Ascunde animalele de companie' : 'Afișează animalele de companie'}
+                      </Button>
+                    </Box>
                   </Box>
                   {expandedOwnerId === o.id && (
                     <>
@@ -491,7 +560,14 @@ import React, { useEffect, useState } from 'react';
                                   primary={<span><b>{pet.name}</b> ({pet.species})</span>}
                                   secondary={pet.breed ? `Rasă: ${pet.breed}` : null}
                                 />
-                                <Button size="small" variant="outlined" sx={{ ml: 2 }} onClick={async e => {
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                  <Button size="small" variant="outlined" color="error" onClick={async e => {
+                                    e.stopPropagation();
+                                    await handleDeletePet(pet.id, pet.name);
+                                  }}>
+                                    Șterge
+                                  </Button>
+                                  <Button size="small" variant="outlined" onClick={async e => {
                                   e.stopPropagation();
                                   // Refetch owners and pets to ensure we have up-to-date vaccine/deworming records (including expiryDate)
                                   await fetchOwnersAndPets();
@@ -506,6 +582,7 @@ import React, { useEffect, useState } from 'react';
                                   setShowExternalHistory(!!hs.dewormingExternal);
                                   setShowAdvancedPetDetails(true);
                                 }}>Detalii avansate</Button>
+                                </Box>
                               </ListItem>
                             ))}
                           </List>
