@@ -35,7 +35,8 @@ module.exports = {
     return petsWithDetails;
   },
   async deletePet(id) {
-    await pool.query('DELETE FROM pets WHERE id = $1', [id]);
+    const result = await pool.query('DELETE FROM pets WHERE id = $1', [id]);
+    return result;
   },
   // Adaugă și alte funcții după nevoie
 };

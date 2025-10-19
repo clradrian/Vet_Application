@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-  import { Card, CardContent, Typography, TextField, Button, Box, List, ListItem, ListItemText, Alert, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+  import { Card, CardContent, Typography, TextField, Button, Box, List, ListItem, ListItemText, Alert, Dialog, DialogTitle, DialogContent, DialogActions, Pagination } from '@mui/material';
   import { loadHistoryState, saveHistoryState } from './utils/historyState';
   import { sortByAdminDate } from './utils/sortByAdminDate';
 
@@ -103,6 +103,69 @@ import React, { useEffect, useState } from 'react';
   const [successOwner, setSuccessOwner] = useState('');
   const [expandedOwnerId, setExpandedOwnerId] = useState(null);
 
+  // State pentru paginare
+  const [ownersPage, setOwnersPage] = useState(1);
+  const [staffPage, setStaffPage] = useState(1);
+  const [ownersPageInput, setOwnersPageInput] = useState('1');
+  const [staffPageInput, setStaffPageInput] = useState('1');
+  const ITEMS_PER_PAGE = 10;
+
+  // State pentru căutare/filtrare
+  const [ownersSearchTerm, setOwnersSearchTerm] = useState('');
+  const [staffSearchTerm, setStaffSearchTerm] = useState('');
+
+  // Funcții pentru navigarea directă la pagină
+  const handleOwnersPageInputChange = (e) => {
+    const value = e.target.value;
+    setOwnersPageInput(value);
+  };
+
+  const handleOwnersPageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(ownersPageInput);
+    if (pageNum >= 1 && pageNum <= ownersTotalPages) {
+      setOwnersPage(pageNum);
+      setExpandedOwnerId(null); // Închide detaliile când schimbăm pagina
+    } else {
+      setOwnersPageInput(ownersPage.toString()); // Reset la pagina curentă dacă input invalid
+    }
+  };
+
+  const handleStaffPageInputChange = (e) => {
+    const value = e.target.value;
+    setStaffPageInput(value);
+  };
+
+  const handleStaffPageInputSubmit = (e) => {
+    e.preventDefault();
+    const pageNum = parseInt(staffPageInput);
+    if (pageNum >= 1 && pageNum <= staffTotalPages) {
+      setStaffPage(pageNum);
+    } else {
+      setStaffPageInput(staffPage.toString()); // Reset la pagina curentă dacă input invalid
+    }
+  };
+
+  // Sincronizare input cu pagina curentă
+  useEffect(() => {
+    setOwnersPageInput(ownersPage.toString());
+  }, [ownersPage]);
+
+  useEffect(() => {
+    setStaffPageInput(staffPage.toString());
+  }, [staffPage]);
+
+  // Reset pagina la 1 când se schimbă termenul de căutare
+  useEffect(() => {
+    setOwnersPage(1);
+    setOwnersPageInput('1');
+  }, [ownersSearchTerm]);
+
+  useEffect(() => {
+    setStaffPage(1);
+    setStaffPageInput('1');
+  }, [staffSearchTerm]);
+
   const fetchOwnersAndPets = async () => {
     try {
       const res = await fetch('http://localhost:4000/admin/staff', {
@@ -146,6 +209,35 @@ import React, { useEffect, useState } from 'react';
     fetchOwnersAndPets();
   }, [token]);
 
+  // Ștergere animal
+  const handleDeletePet = async (petId, petName) => {
+    if (!window.confirm(`Ești sigur că vrei să ștergi animalul "${petName}"? Această acțiune nu poate fi anulată.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:4000/api/pets/${petId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete pet');
+      }
+
+      // Refresh the list after deletion
+      await fetchOwnersAndPets();
+      setSuccessOwner('Animalul a fost șters cu succes!');
+      // Auto-hide success message after 2 seconds
+      setTimeout(() => setSuccessOwner(''), 2000);
+    } catch (err) {
+      setError(err.message || 'Eroare la ștergerea animalului');
+      // Auto-hide error message after 5 seconds
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
   // Adăugare/editare personal
   const handleAddStaff = async (e) => {
     e.preventDefault();
@@ -175,6 +267,8 @@ import React, { useEffect, useState } from 'react';
       }
     } catch (err) {
       setError(err.message);
+      // Auto-hide error message after 5 seconds
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -197,6 +291,8 @@ import React, { useEffect, useState } from 'react';
         setEditingOwner(null);
         setShowOwnerForm(false);
         setSuccessOwner('Datele proprietarului au fost salvate cu succes!');
+        // Auto-hide success message after 2 seconds
+        setTimeout(() => setSuccessOwner(''), 2000);
       } else {
         res = await fetch('http://localhost:4000/admin/staff', {
           method: 'POST',
@@ -209,14 +305,55 @@ import React, { useEffect, useState } from 'react';
         setEditingOwner(null);
         setShowOwnerForm(false);
         setSuccessOwner('Proprietarul a fost adăugat cu succes!');
+        // Auto-hide success message after 2 seconds
+        setTimeout(() => setSuccessOwner(''), 2000);
       }
     } catch (err) {
       setError(err.message);
+      // Auto-hide error message after 5 seconds
+      setTimeout(() => setError(''), 5000);
     }
   };
 
-  const staffList = users.filter(u => u.role !== 'pet_owner');
-  const ownerList = users.filter(u => u.role === 'pet_owner');
+  // Sortare alfabetică și filtrare după nume pentru personal
+  const allStaff = users
+    .filter(u => u.role !== 'pet_owner')
+    .filter(u => {
+      const searchTerm = staffSearchTerm.toLowerCase();
+      const fullName = (u.fullName || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      return fullName.includes(searchTerm) || username.includes(searchTerm);
+    })
+    .sort((a, b) => {
+      const nameA = a.fullName || a.username || '';
+      const nameB = b.fullName || b.username || '';
+      return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
+    });
+  
+  const staffTotalPages = Math.max(1, Math.ceil(allStaff.length / ITEMS_PER_PAGE));
+  const staffStartIndex = (staffPage - 1) * ITEMS_PER_PAGE;
+  const staffEndIndex = staffStartIndex + ITEMS_PER_PAGE;
+  const staffList = allStaff.slice(staffStartIndex, staffEndIndex);
+
+  // Sortare alfabetică și filtrare după nume pentru proprietari
+  const allOwners = users
+    .filter(u => u.role === 'pet_owner')
+    .filter(u => {
+      const searchTerm = ownersSearchTerm.toLowerCase();
+      const fullName = (u.fullName || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      return fullName.includes(searchTerm) || username.includes(searchTerm);
+    })
+    .sort((a, b) => {
+      const nameA = a.fullName || a.username || '';
+      const nameB = b.fullName || b.username || '';
+      return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
+    });
+  
+  const ownersTotalPages = Math.max(1, Math.ceil(allOwners.length / ITEMS_PER_PAGE));
+  const ownersStartIndex = (ownersPage - 1) * ITEMS_PER_PAGE;
+  const ownersEndIndex = ownersStartIndex + ITEMS_PER_PAGE;
+  const ownerList = allOwners.slice(ownersStartIndex, ownersEndIndex);
 
   if (proprietariOnly) {
     // Administrare proprietari
@@ -243,14 +380,13 @@ import React, { useEffect, useState } from 'react';
                   <Box sx={{ display: 'flex', gap: 2 }}>
                     <Button type="submit" variant="contained" color="primary">{editingOwner ? 'Salvează modificările' : 'Salvează'}</Button>
                     <Button variant="outlined" color="secondary" onClick={() => { setShowOwnerForm(false); setEditingOwner(null); }}>Anulează</Button>
-                    <Button variant="outlined" color="primary" onClick={() => setShowPetForm(true)}>Adaugă animal de companie</Button>
                   </Box>
                 </Box>
               )}
             </Box>
-            {showPetForm && (
+            {showPetForm && editingOwner && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                <Typography variant="subtitle1" color="primary">Date animal de companie</Typography>
+                <Typography variant="subtitle1" color="primary">Adaugă animal pentru: {editingOwner.fullName || editingOwner.username}</Typography>
                 <TextField label="Nume" variant="outlined" value={petForm.name} onChange={e => setPetForm(f => ({ ...f, name: e.target.value }))} fullWidth />
                 <TextField label="Specie" variant="outlined" value={petForm.species} onChange={e => setPetForm(f => ({ ...f, species: e.target.value }))} fullWidth />
                 <TextField label="Rasă" variant="outlined" value={petForm.breed} onChange={e => setPetForm(f => ({ ...f, breed: e.target.value }))} fullWidth />
@@ -367,7 +503,7 @@ import React, { useEffect, useState } from 'react';
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
-                              ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {})
+                              Authorization: `Bearer ${token}`
                             },
                             body: JSON.stringify(petPayload)
                           });
@@ -384,6 +520,8 @@ import React, { useEffect, useState } from 'react';
                               if (v.expiryDate && v.date && parseDate(v.expiryDate) && parseDate(v.date)) {
                                 if (parseDate(v.expiryDate) < parseDate(v.date)) {
                                   setError('Data de expirare nu poate fi înaintea datei de administrare pentru vaccinuri');
+                                  // Auto-hide error message after 5 seconds
+                                  setTimeout(() => setError(''), 5000);
                                   return;
                                 }
                               }
@@ -391,7 +529,7 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.vaccines.map(v =>
                               fetch('http://localhost:4000/api/vaccines', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...v, expiryDate: v.expiryDate ? v.expiryDate : null })
                               })
                             ));
@@ -402,6 +540,8 @@ import React, { useEffect, useState } from 'react';
                               if (d.expiryDate && d.date && parseDate(d.expiryDate) && parseDate(d.date)) {
                                 if (parseDate(d.expiryDate) < parseDate(d.date)) {
                                   setError('Data de expirare nu poate fi înaintea datei de administrare pentru deparazitări interne');
+                                  // Auto-hide error message after 5 seconds
+                                  setTimeout(() => setError(''), 5000);
                                   return;
                                 }
                               }
@@ -409,7 +549,7 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.dewormingInternal.map(d =>
                               fetch('http://localhost:4000/api/dewormings', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...d, type: 'internal', expiryDate: d.expiryDate ? d.expiryDate : null })
                               })
                             ));
@@ -420,6 +560,8 @@ import React, { useEffect, useState } from 'react';
                               if (d.expiryDate && d.date && parseDate(d.expiryDate) && parseDate(d.date)) {
                                 if (parseDate(d.expiryDate) < parseDate(d.date)) {
                                   setError('Data de expirare nu poate fi înaintea datei de administrare pentru deparazitări externe');
+                                  // Auto-hide error message after 5 seconds
+                                  setTimeout(() => setError(''), 5000);
                                   return;
                                 }
                               }
@@ -427,7 +569,7 @@ import React, { useEffect, useState } from 'react';
                             await Promise.all(petForm.dewormingExternal.map(d =>
                               fetch('http://localhost:4000/api/dewormings', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...d, type: 'external', expiryDate: d.expiryDate ? d.expiryDate : null })
                               })
                             ));
@@ -436,20 +578,38 @@ import React, { useEffect, useState } from 'react';
                           await fetchOwnersAndPets();
                         } catch (err) {
                           setError('Eroare la comunicarea cu backend-ul');
+                          // Auto-hide error message after 5 seconds
+                          setTimeout(() => setError(''), 5000);
                           console.error('Pet save fetch error:', err);
                           return;
                         }
                       }
                       setShowPetForm(false);
+                      setShowOwnerForm(false);
+                      setEditingOwner(null);
                       setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
                     }}
                   >Salvează animal</Button>
-                  <Button variant="outlined" color="secondary" onClick={() => setShowPetForm(false)}>Anulează</Button>
+                  <Button variant="outlined" color="secondary" onClick={() => {
+                    setShowPetForm(false);
+                    setShowOwnerForm(false);
+                    setEditingOwner(null);
+                    setPetForm({ name: '', species: '', breed: '', sex: '', birthDate: '', color: '', microchipId: '', tagNumber: '', sterilized: '', photo: null });
+                  }}>Anulează</Button>
                 </Box>
               </Box>
             )}
             {successOwner && <Alert severity="success" sx={{ mb: 2 }}>{successOwner}</Alert>}
-            <Typography variant="h6" color="primary" sx={{ mt: 2 }}>Listă proprietari de animale</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2, mb: 1 }}>
+              <Typography variant="h6" color="primary">Listă proprietari de animale</Typography>
+              <TextField
+                size="small"
+                placeholder="Caută după nume..."
+                value={ownersSearchTerm}
+                onChange={(e) => setOwnersSearchTerm(e.target.value)}
+                sx={{ minWidth: 200 }}
+              />
+            </Box>
             <List>
               {ownerList.length === 0 && <ListItem><ListItemText primary="Nu există proprietari adăugați." /></ListItem>}
               {ownerList.map((o) => (
@@ -472,12 +632,30 @@ import React, { useEffect, useState } from 'react';
                         secondary={o.email && <span><b>Email:</b> {o.email}</span>}
                       />
                     </Box>
-                    <Button size="small" variant="contained" sx={{ ml: 2 }} onClick={e => {
-                      e.stopPropagation();
-                      setExpandedOwnerId(expandedOwnerId === o.id ? null : o.id);
-                    }}>
-                      {expandedOwnerId === o.id ? 'Ascunde animalele de companie' : 'Afișează animalele de companie'}
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button size="small" variant="outlined" color="primary" sx={{ ml: 1 }} onClick={e => {
+                        e.stopPropagation();
+                        setShowOwnerForm(true);
+                        setEditingOwner(o);
+                        setOwnerForm({
+                          username: o.username,
+                          password: '',
+                          role: o.role,
+                          fullName: o.fullName || '',
+                          email: o.email || '',
+                          phone: o.phone || ''
+                        });
+                        setShowPetForm(true);
+                      }}>
+                        Adaugă animal
+                      </Button>
+                      <Button size="small" variant="contained" onClick={e => {
+                        e.stopPropagation();
+                        setExpandedOwnerId(expandedOwnerId === o.id ? null : o.id);
+                      }}>
+                        {expandedOwnerId === o.id ? 'Ascunde animalele de companie' : 'Afișează animalele de companie'}
+                      </Button>
+                    </Box>
                   </Box>
                   {expandedOwnerId === o.id && (
                     <>
@@ -491,7 +669,14 @@ import React, { useEffect, useState } from 'react';
                                   primary={<span><b>{pet.name}</b> ({pet.species})</span>}
                                   secondary={pet.breed ? `Rasă: ${pet.breed}` : null}
                                 />
-                                <Button size="small" variant="outlined" sx={{ ml: 2 }} onClick={async e => {
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                  <Button size="small" variant="outlined" color="error" onClick={async e => {
+                                    e.stopPropagation();
+                                    await handleDeletePet(pet.id, pet.name);
+                                  }}>
+                                    Șterge
+                                  </Button>
+                                  <Button size="small" variant="outlined" onClick={async e => {
                                   e.stopPropagation();
                                   // Refetch owners and pets to ensure we have up-to-date vaccine/deworming records (including expiryDate)
                                   await fetchOwnersAndPets();
@@ -506,6 +691,7 @@ import React, { useEffect, useState } from 'react';
                                   setShowExternalHistory(!!hs.dewormingExternal);
                                   setShowAdvancedPetDetails(true);
                                 }}>Detalii avansate</Button>
+                                </Box>
                               </ListItem>
                             ))}
                           </List>
@@ -518,6 +704,38 @@ import React, { useEffect, useState } from 'react';
                 </ListItem>
               ))}
             </List>
+            
+            {/* Paginare proprietari */}
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Pagina {ownersPage} din {ownersTotalPages} ({allOwners.length} proprietari total)
+                </Typography>
+                  <Box component="form" onSubmit={handleOwnersPageInputSubmit} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2">Mergi la pagina:</Typography>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={ownersPageInput}
+                      onChange={handleOwnersPageInputChange}
+                      inputProps={{ min: 1, max: ownersTotalPages, style: { width: '60px', textAlign: 'center' } }}
+                    />
+                    <Button type="submit" size="small" variant="outlined">Go</Button>
+                  </Box>
+                </Box>
+                <Pagination
+                  count={ownersTotalPages}
+                  page={ownersPage}
+                  onChange={(event, value) => {
+                    setOwnersPage(value);
+                    setExpandedOwnerId(null);
+                  }}
+                  color="primary"
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+            
             {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
           </CardContent>
         </Card>
@@ -1059,7 +1277,16 @@ import React, { useEffect, useState } from 'react';
                 </Box>
               )}
             </Box>
-            <Typography variant="h6" color="primary" sx={{ mt: 2 }}>Listă personal</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2, mb: 1 }}>
+              <Typography variant="h6" color="primary">Listă personal</Typography>
+              <TextField
+                size="small"
+                placeholder="Caută după nume..."
+                value={staffSearchTerm}
+                onChange={(e) => setStaffSearchTerm(e.target.value)}
+                sx={{ minWidth: 200 }}
+              />
+            </Box>
             <List>
               {staffList.length === 0 && <ListItem><ListItemText primary="Nu există personal adăugat." /></ListItem>}
               {staffList.map((s) => (
@@ -1088,6 +1315,35 @@ import React, { useEffect, useState } from 'react';
                 </ListItem>
               ))}
             </List>
+            
+            {/* Paginare personal */}
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Pagina {staffPage} din {staffTotalPages} ({allStaff.length} membri personal total)
+                </Typography>
+                  <Box component="form" onSubmit={handleStaffPageInputSubmit} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2">Mergi la pagina:</Typography>
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={staffPageInput}
+                      onChange={handleStaffPageInputChange}
+                      inputProps={{ min: 1, max: staffTotalPages, style: { width: '60px', textAlign: 'center' } }}
+                    />
+                    <Button type="submit" size="small" variant="outlined">Go</Button>
+                  </Box>
+                </Box>
+                <Pagination
+                  count={staffTotalPages}
+                  page={staffPage}
+                  onChange={(event, value) => setStaffPage(value)}
+                  color="primary"
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+            
             {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
           </CardContent>
         </Card>
