@@ -110,6 +110,10 @@ import React, { useEffect, useState } from 'react';
   const [staffPageInput, setStaffPageInput] = useState('1');
   const ITEMS_PER_PAGE = 10;
 
+  // State pentru căutare/filtrare
+  const [ownersSearchTerm, setOwnersSearchTerm] = useState('');
+  const [staffSearchTerm, setStaffSearchTerm] = useState('');
+
   // Funcții pentru navigarea directă la pagină
   const handleOwnersPageInputChange = (e) => {
     const value = e.target.value;
@@ -150,6 +154,17 @@ import React, { useEffect, useState } from 'react';
   useEffect(() => {
     setStaffPageInput(staffPage.toString());
   }, [staffPage]);
+
+  // Reset pagina la 1 când se schimbă termenul de căutare
+  useEffect(() => {
+    setOwnersPage(1);
+    setOwnersPageInput('1');
+  }, [ownersSearchTerm]);
+
+  useEffect(() => {
+    setStaffPage(1);
+    setStaffPageInput('1');
+  }, [staffSearchTerm]);
 
   const fetchOwnersAndPets = async () => {
     try {
@@ -300,24 +315,40 @@ import React, { useEffect, useState } from 'react';
     }
   };
 
-  // Sortare alfabetică și paginare pentru personal
-  const allStaff = users.filter(u => u.role !== 'pet_owner').sort((a, b) => {
-    const nameA = a.fullName || a.username || '';
-    const nameB = b.fullName || b.username || '';
-    return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
-  });
+  // Sortare alfabetică și filtrare după nume pentru personal
+  const allStaff = users
+    .filter(u => u.role !== 'pet_owner')
+    .filter(u => {
+      const searchTerm = staffSearchTerm.toLowerCase();
+      const fullName = (u.fullName || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      return fullName.includes(searchTerm) || username.includes(searchTerm);
+    })
+    .sort((a, b) => {
+      const nameA = a.fullName || a.username || '';
+      const nameB = b.fullName || b.username || '';
+      return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
+    });
   
   const staffTotalPages = Math.max(1, Math.ceil(allStaff.length / ITEMS_PER_PAGE));
   const staffStartIndex = (staffPage - 1) * ITEMS_PER_PAGE;
   const staffEndIndex = staffStartIndex + ITEMS_PER_PAGE;
   const staffList = allStaff.slice(staffStartIndex, staffEndIndex);
 
-  // Sortare alfabetică și paginare pentru proprietari
-  const allOwners = users.filter(u => u.role === 'pet_owner').sort((a, b) => {
-    const nameA = a.fullName || a.username || '';
-    const nameB = b.fullName || b.username || '';
-    return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
-  });
+  // Sortare alfabetică și filtrare după nume pentru proprietari
+  const allOwners = users
+    .filter(u => u.role === 'pet_owner')
+    .filter(u => {
+      const searchTerm = ownersSearchTerm.toLowerCase();
+      const fullName = (u.fullName || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+      return fullName.includes(searchTerm) || username.includes(searchTerm);
+    })
+    .sort((a, b) => {
+      const nameA = a.fullName || a.username || '';
+      const nameB = b.fullName || b.username || '';
+      return nameA.toLowerCase().localeCompare(nameB.toLowerCase());
+    });
   
   const ownersTotalPages = Math.max(1, Math.ceil(allOwners.length / ITEMS_PER_PAGE));
   const ownersStartIndex = (ownersPage - 1) * ITEMS_PER_PAGE;
@@ -569,7 +600,16 @@ import React, { useEffect, useState } from 'react';
               </Box>
             )}
             {successOwner && <Alert severity="success" sx={{ mb: 2 }}>{successOwner}</Alert>}
-            <Typography variant="h6" color="primary" sx={{ mt: 2 }}>Listă proprietari de animale</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2, mb: 1 }}>
+              <Typography variant="h6" color="primary">Listă proprietari de animale</Typography>
+              <TextField
+                size="small"
+                placeholder="Caută după nume..."
+                value={ownersSearchTerm}
+                onChange={(e) => setOwnersSearchTerm(e.target.value)}
+                sx={{ minWidth: 200 }}
+              />
+            </Box>
             <List>
               {ownerList.length === 0 && <ListItem><ListItemText primary="Nu există proprietari adăugați." /></ListItem>}
               {ownerList.map((o) => (
@@ -1237,7 +1277,16 @@ import React, { useEffect, useState } from 'react';
                 </Box>
               )}
             </Box>
-            <Typography variant="h6" color="primary" sx={{ mt: 2 }}>Listă personal</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2, mb: 1 }}>
+              <Typography variant="h6" color="primary">Listă personal</Typography>
+              <TextField
+                size="small"
+                placeholder="Caută după nume..."
+                value={staffSearchTerm}
+                onChange={(e) => setStaffSearchTerm(e.target.value)}
+                sx={{ minWidth: 200 }}
+              />
+            </Box>
             <List>
               {staffList.length === 0 && <ListItem><ListItemText primary="Nu există personal adăugat." /></ListItem>}
               {staffList.map((s) => (
