@@ -5,6 +5,9 @@ const jwt = require('jsonwebtoken');
 const userModel = require('./userModel');
 const petModel = require('./petModel');
 const bcrypt = require('bcrypt');
+const cron = require('node-cron');
+const expirationService = require('./expirationService');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -164,3 +167,38 @@ app.get('/api/me', (req, res) => {
     return res.status(401).json({ error: 'Token invalid.' });
   }
 });
+
+// Endpoint pentru testarea notificărilor de expirare (doar pentru admin)
+app.post('/admin/test-notifications', requireAdmin, async (req, res) => {
+  try {
+    await expirationService.testNotifications();
+    res.json({ 
+      success: true, 
+      message: 'Notification test completed. Check console for details.' 
+    });
+  } catch (error) {
+    console.error('Error testing notifications:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to test notifications' 
+    });
+  }
+});
+
+// Programare automată pentru verificarea expirărilor
+// Rulează în fiecare zi la ora 09:00
+cron.schedule('0 9 * * *', async () => {
+  console.log('Running scheduled expiration check...');
+  await expirationService.checkExpirations();
+}, {
+  timezone: "Europe/Bucharest"
+});
+
+// Pentru dezvoltare: verificare la fiecare 5 minute (comentează pentru producție)
+// cron.schedule('*/5 * * * *', async () => {
+//   console.log('Running development expiration check...');
+//   await expirationService.checkExpirations();
+// });
+
+console.log('Email notification system initialized');
+console.log('Scheduled daily expiration checks at 09:00 (Bucharest time)');

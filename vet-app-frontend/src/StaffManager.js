@@ -238,7 +238,33 @@ import React, { useEffect, useState } from 'react';
     }
   };
 
-  // Adăugare/editare personal
+  // Test notifications function
+  const testNotifications = async () => {
+    try {
+      const response = await fetch('http://localhost:4000/admin/test-notifications', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setSuccessStaff('Test notificări completat! Verifică consola backend-ului pentru detalii.');
+        setTimeout(() => setSuccessStaff(''), 2000);
+      } else {
+        setError('Eroare la testarea notificărilor');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (err) {
+      console.error('Error testing notifications:', err);
+      setError('Eroare la conectarea cu serverul');
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  // Add/edit staff function
   const handleAddStaff = async (e) => {
     e.preventDefault();
     setError('');
@@ -1248,13 +1274,23 @@ import React, { useEffect, useState } from 'react';
         <Card sx={{ mb: 4, boxShadow: 3, bgcolor: 'background.paper' }}>
           <CardContent>
             <Typography variant="h5" align="center" color="primary" gutterBottom>Administrare personal</Typography>
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               {!showStaffForm && (
-                <Button variant="contained" color="primary" onClick={() => {
-                  setShowStaffForm(true);
-                  setEditingStaff(null);
-                  setStaffForm({ username: '', password: '', role: 'vet', fullName: '', email: '', phone: '', specialization: '', address: '' });
-                }}>Adaugă personal</Button>
+                <>
+                  <Button variant="contained" color="primary" onClick={() => {
+                    setShowStaffForm(true);
+                    setEditingStaff(null);
+                    setStaffForm({ username: '', password: '', role: 'vet', fullName: '', email: '', phone: '', specialization: '', address: '' });
+                  }}>Adaugă personal</Button>
+                  <Button 
+                    variant="outlined" 
+                    color="secondary" 
+                    onClick={testNotifications}
+                    sx={{ ml: 1 }}
+                  >
+                    Test Notificări Email
+                  </Button>
+                </>
               )}
               {showStaffForm && (
                 <Box component="form" onSubmit={handleAddStaff} sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
