@@ -187,13 +187,39 @@ app.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// Health check endpoint
+// Admin dashboard stats
+app.get('/admin/dashboard', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // Get user count
+    const userCount = await userModel.getUserCount();
+    
+    res.json({
+      totalUsers: userCount,
+      totalPets: 0, // This would need to be fetched from pet-service
+      recentActivity: []
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+});
+
+// Test notifications endpoint
+app.get('/admin/test-notifications', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // This is a test endpoint - in a real implementation, 
+    // this would trigger test notifications via the notification service
+    res.json({ 
+      message: 'Test notifications endpoint called successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to trigger test notifications' });
+  }
+});
+
+// Health check for API gateway compatibility
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    service: 'user-service',
-    timestamp: new Date().toISOString() 
-  });
+  res.json({ service: 'user-service', status: 'healthy', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {

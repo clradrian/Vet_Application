@@ -56,5 +56,10 @@ module.exports = {
   async getUsersByRole(role) {
     const { rows } = await pool.query('SELECT * FROM users WHERE role = $1 ORDER BY id', [role]);
     return rows;
+  },
+
+  async getUserCount() {
+    const { rows } = await pool.query('SELECT COUNT(*) as count FROM users');
+    return parseInt(rows[0].count);
   }
 };

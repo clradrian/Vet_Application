@@ -3,6 +3,14 @@
 # Script simplu pentru rularea aplicației Vet
 # Rulează: ./run-app.sh
 
+# Add Docker to PATH if needed
+if ! command -v docker &> /dev/null; then
+    export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
+fi
+
+# Use docker compose (new syntax) instead of docker-compose
+DOCKER_COMPOSE="docker compose"
+
 echo "🏥 Pornesc Aplicația Veterinară..."
 echo "================================"
 
@@ -19,11 +27,11 @@ fi
 
 # Oprește container-ele existente
 echo "🛑 Opresc container-ele existente..."
-docker-compose down 2>/dev/null || true
+$DOCKER_COMPOSE down 2>/dev/null || true
 
 # Pornește aplicația
 echo "🚀 Pornesc aplicația..."
-docker-compose up --build -d
+$DOCKER_COMPOSE up --build -d
 
 # Așteaptă puțin să pornească totul
 echo "⏳ Aștept să pornească serviciile..."
@@ -32,7 +40,7 @@ sleep 20
 # Verifică statusul
 echo ""
 echo "📊 Status servicii:"
-docker-compose ps
+$DOCKER_COMPOSE ps
 
 echo ""
 echo "🎉 Aplicația este pornită!"
@@ -40,7 +48,7 @@ echo ""
 echo "📱 Accesează aplicația la: http://localhost:3000"
 echo ""
 echo "🔧 Pentru a vedea log-urile:"
-echo "   docker-compose logs -f"
+echo "   docker compose logs -f"
 echo ""
 echo "🛑 Pentru a opri aplicația:"
-echo "   docker-compose down"
+echo "   docker compose down"

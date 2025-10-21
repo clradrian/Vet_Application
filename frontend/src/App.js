@@ -17,7 +17,7 @@ const theme = createTheme({
   },
 });
 
-const API = 'http://localhost:4000/api';
+const API = '/auth';
 
 function App() {
   const [adminTab, setAdminTab] = useState(0);
@@ -63,7 +63,7 @@ function App() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${API}/pets`, {
+      const res = await fetch(`/api/pets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ function App() {
         const me = await meRes.json();
 
         // 2) get pets
-        const petsRes = await fetch(`${API}/pets/${me.id}`, {
+        const petsRes = await fetch(`/api/pets/owner/${me.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!petsRes.ok) throw new Error('Token invalid sau expirat.');

@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --silent
+RUN npm install --silent
 
 # Copy source code
 COPY src/ ./src/
@@ -21,12 +21,15 @@ FROM node:18-alpine as production
 
 WORKDIR /app
 
-# Install serve globally
-RUN npm install -g serve
-
 # Copy built app from build stage
 COPY --from=build /app/build ./build
 COPY --from=build /app/package.json ./
+
+# Copy server file
+COPY server.js ./
+
+# Install production dependencies (express and http-proxy-middleware)
+RUN npm install express http-proxy-middleware --only=production
 
 # Expose port
 EXPOSE 3000
@@ -44,4 +47,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Start the application
-CMD ["serve", "-s", "build", "-l", "3000"]
+CMD ["node", "server.js"]

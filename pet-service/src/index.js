@@ -51,6 +51,28 @@ function requireAdmin(req, res, next) {
 
 // Routes
 
+// Get single pet by ID
+app.get('/pets/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const pet = await petModel.getPetById(id);
+    if (!pet) {
+      return res.status(404).json({ error: 'Pet not found' });
+    }
+
+    // Check if user can access this pet (own pet or admin)
+    if (req.user.role !== 'clinic_admin' && req.user.id !== pet.owner_id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json(pet);
+  } catch (error) {
+    console.error('Get pet error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get pets by owner
 app.get('/pets/owner/:ownerId', authenticateToken, async (req, res) => {
   try {

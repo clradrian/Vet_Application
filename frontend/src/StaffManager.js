@@ -168,14 +168,14 @@ import React, { useEffect, useState } from 'react';
 
   const fetchOwnersAndPets = async () => {
     try {
-      const res = await fetch('http://localhost:4000/admin/staff', {
+      const res = await fetch('/api/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       const owners = data.filter(u => u.role === 'pet_owner');
       const staff = data.filter(u => u.role !== 'pet_owner');
       const ownersWithPets = await Promise.all(owners.map(async (owner) => {
-        const petsRes = await fetch(`http://localhost:4000/api/pets/${owner.id}`);
+        const petsRes = await fetch(`/api/pets/${owner.id}`);
         const petsRaw = await petsRes.json();
         // Normalize keys from backend (which returns lowercase JSON keys) to camelCase used in frontend
         const pets = (petsRaw || []).map(p => {
@@ -216,7 +216,7 @@ import React, { useEffect, useState } from 'react';
     }
 
     try {
-      const res = await fetch(`http://localhost:4000/api/pets/${petId}`, {
+      const res = await fetch(`/api/pets/${petId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -241,7 +241,7 @@ import React, { useEffect, useState } from 'react';
   // Test notifications function
   const testNotifications = async () => {
     try {
-      const response = await fetch('http://localhost:4000/admin/test-notifications', {
+      const response = await fetch('/admin/test-notifications', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -271,7 +271,7 @@ import React, { useEffect, useState } from 'react';
     try {
       let res, data;
       if (editingStaff) {
-        res = await fetch(`http://localhost:4000/admin/staff/${editingStaff.id}`, {
+        res = await fetch(`/api/users/${editingStaff.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(staffForm)
@@ -281,7 +281,7 @@ import React, { useEffect, useState } from 'react';
         setUsers(users.map(u => u.id === data.id ? data : u));
         setEditingStaff(data);
       } else {
-        res = await fetch('http://localhost:4000/admin/staff', {
+        res = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(staffForm)
@@ -306,7 +306,7 @@ import React, { useEffect, useState } from 'react';
     try {
       let res, data;
       if (editingOwner) {
-        res = await fetch(`http://localhost:4000/admin/staff/${editingOwner.id}`, {
+        res = await fetch(`/api/users/${editingOwner.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(ownerForm)
@@ -320,7 +320,7 @@ import React, { useEffect, useState } from 'react';
         // Auto-hide success message after 2 seconds
         setTimeout(() => setSuccessOwner(''), 2000);
       } else {
-        res = await fetch('http://localhost:4000/admin/staff', {
+        res = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(ownerForm)
@@ -525,7 +525,7 @@ import React, { useEffect, useState } from 'react';
                             birthDate: petForm.birthDate ? petForm.birthDate : null,
                             sterilizationDate: petForm.sterilizationDate ? petForm.sterilizationDate : null
                           };
-                          const petRes = await fetch('http://localhost:4000/api/pets', {
+                          const petRes = await fetch('/api/pets', {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
@@ -553,7 +553,7 @@ import React, { useEffect, useState } from 'react';
                               }
                             }
                             await Promise.all(petForm.vaccines.map(v =>
-                              fetch('http://localhost:4000/api/vaccines', {
+                              fetch('/api/vaccines', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...v, expiryDate: v.expiryDate ? v.expiryDate : null })
@@ -573,7 +573,7 @@ import React, { useEffect, useState } from 'react';
                               }
                             }
                             await Promise.all(petForm.dewormingInternal.map(d =>
-                              fetch('http://localhost:4000/api/dewormings', {
+                              fetch('/api/dewormings', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...d, type: 'internal', expiryDate: d.expiryDate ? d.expiryDate : null })
@@ -593,7 +593,7 @@ import React, { useEffect, useState } from 'react';
                               }
                             }
                             await Promise.all(petForm.dewormingExternal.map(d =>
-                              fetch('http://localhost:4000/api/dewormings', {
+                              fetch('/api/dewormings', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                                 body: JSON.stringify({ pet_id: petData.id, ...d, type: 'external', expiryDate: d.expiryDate ? d.expiryDate : null })
@@ -1187,7 +1187,7 @@ import React, { useEffect, useState } from 'react';
                   // Save changes to backend
                   try {
                     // PATCH pet details
-                    await fetch(`http://localhost:4000/api/pets/${editAdvancedForm.id}`, {
+                    await fetch(`/api/pets/${editAdvancedForm.id}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
                       body: JSON.stringify({
@@ -1207,7 +1207,7 @@ import React, { useEffect, useState } from 'react';
                         }
                       }
                       await Promise.all(editAdvancedForm.vaccines.map(v =>
-                        fetch(`http://localhost:4000/api/vaccines/${v.id || ''}`, {
+                        fetch(`/api/vaccines/${v.id || ''}`, {
                           method: v.id ? 'PATCH' : 'POST',
                           headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
                           body: JSON.stringify({ pet_id: editAdvancedForm.id, ...v, expiryDate: v.expiryDate ? v.expiryDate : null })
@@ -1225,7 +1225,7 @@ import React, { useEffect, useState } from 'react';
                         }
                       }
                       await Promise.all(editAdvancedForm.dewormingInternal.map(d =>
-                        fetch(`http://localhost:4000/api/dewormings/${d.id || ''}`, {
+                        fetch(`/api/dewormings/${d.id || ''}`, {
                           method: d.id ? 'PATCH' : 'POST',
                           headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
                           body: JSON.stringify({ pet_id: editAdvancedForm.id, ...d, type: 'internal', expiryDate: d.expiryDate ? d.expiryDate : null })
@@ -1242,7 +1242,7 @@ import React, { useEffect, useState } from 'react';
                         }
                       }
                       await Promise.all(editAdvancedForm.dewormingExternal.map(d =>
-                        fetch(`http://localhost:4000/api/dewormings/${d.id || ''}`, {
+                        fetch(`/api/dewormings/${d.id || ''}`, {
                           method: d.id ? 'PATCH' : 'POST',
                           headers: { 'Content-Type': 'application/json', ...(localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}) },
                           body: JSON.stringify({ pet_id: editAdvancedForm.id, ...d, type: 'external', expiryDate: d.expiryDate ? d.expiryDate : null })

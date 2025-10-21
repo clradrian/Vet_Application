@@ -1,6 +1,10 @@
 # Makefile pentru Aplicația Veterinară
 # Utilizare: make <comanda>
 
+# Docker path configuration
+DOCKER_PATH = /Applications/Docker.app/Contents/Resources/bin
+DOCKER_COMPOSE = $(DOCKER_PATH)/docker compose
+
 .PHONY: help start stop restart logs clean status health setup dev prod
 
 # Afișează comenzile disponibile
@@ -42,8 +46,8 @@ setup:
 # Pornește aplicația (mod producție implicit)
 start: setup
 	@echo "🚀 Pornesc aplicația..."
-	@docker-compose down 2>/dev/null || true
-	@docker-compose up --build -d
+	@$(DOCKER_COMPOSE) down 2>/dev/null || true
+	@$(DOCKER_COMPOSE) up --build -d
 	@echo "⏳ Aștept să pornească serviciile..."
 	@sleep 15
 	@make status
@@ -78,8 +82,8 @@ prod: setup
 # Oprește aplicația
 stop:
 	@echo "🛑 Opresc aplicația..."
-	@docker-compose down 2>/dev/null || true
-	@docker-compose -f docker-compose.dev.yml down 2>/dev/null || true
+	@$(DOCKER_COMPOSE) down 2>/dev/null || true
+	@$(DOCKER_COMPOSE) -f docker-compose.dev.yml down 2>/dev/null || true
 	@echo "✅ Aplicația a fost oprită"
 
 # Restart aplicația
@@ -88,12 +92,12 @@ restart: stop start
 # Verifică statusul serviciilor
 status:
 	@echo "📊 Status servicii (producție):"
-	@docker-compose ps
+	@$(DOCKER_COMPOSE) ps
 
 # Status pentru dezvoltare
 status-dev:
 	@echo "📊 Status servicii (dezvoltare):"
-	@docker-compose -f docker-compose.dev.yml ps
+	@$(DOCKER_COMPOSE) -f docker-compose.dev.yml ps
 
 # Afișează log-urile
 logs:

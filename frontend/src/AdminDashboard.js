@@ -6,12 +6,12 @@ function AdminDashboard({ token }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:4000/admin/dashboard', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => setStats(data))
-      .catch(() => setError('Failed to fetch dashboard stats'));
+    // TODO: Implement admin dashboard endpoint
+    setStats({
+      totalPets: 0,
+      totalUsers: 0,
+      recentActivity: []
+    });
   }, [token]);
 
   if (error) return <Alert severity="error">{error}</Alert>;

@@ -15,7 +15,13 @@
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "axios": "^1.6.0",
-    "serve": "^14.2.1"
+    "serve": "^14.2.1",
+    "@mui/material": "^5.15.0",
+    "@mui/icons-material": "^5.15.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "http-proxy-middleware": "^2.0.6",
+    "web-vitals": "^3.5.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^5.16.4",
@@ -33,6 +39,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "proxy": "http://localhost:4000"
+  }
 }

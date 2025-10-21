@@ -13,16 +13,7 @@ module.exports = function(app) {
 
   // Authentication endpoints
   app.use(
-    '/api/login',
-    createProxyMiddleware({
-      target: 'http://localhost:3001',
-      changeOrigin: true,
-      secure: false,
-    })
-  );
-
-  app.use(
-    '/api/register',
+    '/auth',
     createProxyMiddleware({
       target: 'http://localhost:3001',
       changeOrigin: true,

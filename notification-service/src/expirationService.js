@@ -1,5 +1,6 @@
 const db = require('./db');
 const emailService = require('./emailService');
+const cron = require('node-cron');
 
 class ExpirationService {
   // Verifică toate expirările și trimite notificări
@@ -166,6 +167,32 @@ class ExpirationService {
     console.log('Running test notification check...');
     await this.checkExpirations();
   }
+
+  // Pornește monitorizarea automată cu cron
+  startExpirationMonitoring() {
+    console.log('Starting expiration monitoring service...');
+    
+    // Rulează zilnic la ora 09:00 (București timezone)
+    cron.schedule('0 9 * * *', async () => {
+      console.log('Running daily expiration check...');
+      try {
+        await this.checkExpirations();
+        console.log('Daily expiration check completed');
+      } catch (error) {
+        console.error('Error during daily expiration check:', error);
+      }
+    }, {
+      timezone: "Europe/Bucharest"
+    });
+
+    console.log('Expiration monitoring scheduled for 09:00 daily (Bucharest time)');
+  }
 }
 
-module.exports = new ExpirationService();
+const expirationService = new ExpirationService();
+
+module.exports = {
+  checkExpirations: () => expirationService.checkExpirations(),
+  testNotifications: () => expirationService.testNotifications(),
+  startExpirationMonitoring: () => expirationService.startExpirationMonitoring()
+};
